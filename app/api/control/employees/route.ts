@@ -1,0 +1,83 @@
+import { NextResponse, type NextRequest } from "next/server";
+import type { AppRole } from "@/lib/auth/types";
+import { requireEmployee, requireAdmin } from "@/lib/control/api";
+import { nextCode } from "@/lib/control/codes";
+import { generateTemporaryPassword } from "@/lib/auth/password";
+import { writeAuditLog } from "@/lib/audit";
+import { resolveBranchScope } from "@/lib/branch-scope/branch-scope";
+
+export async function GET(request: NextRequest) {
+  const context = await requireEmployee();
+  if (!context.ok) return context.error;
+  if (context.employee.role === "barbero") return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  const q = request.nextUrl.searchParams.get("q")?.trim();
+  const role = request.nextUrl.searchParams.get("role");
+  const branchId = request.nextUrl.searchParams.get("branch_id") ?? request.nextUrl.searchParams.get("branchId");
+  let query = context.admin
+    .from("employees")
+    .select("id,code,first_name,last_name,phone,email,role,branch_id,is_active,must_change_password,onboarding_status,email_confirmed_at,branches(name)")
+    .order("code");
+  if (context.employee.role === "recepcion") query = query.eq("branch_id", context.employee.branchId).eq("role", "barbero");
+  const scope = resolveBranchScope(context.employee, branchId);
+  if (context.employee.role === "admin" && scope.mode === "branch") query = query.eq("branch_id", scope.branchId);
+  if (role) query = query.eq("role", role);
+  if (q) query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ employees: data ?? [] });
+}
+
+export async function POST(request: NextRequest) {
+  const context = await requireAdmin();
+  if (!context.ok) return context.error;
+  const body = await request.json();
+  const role = body.role as AppRole;
+  if (!body.firstName || !body.lastName || !role) return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
+  if ((role === "recepcion" || role === "barbero") && !body.branchId) return NextResponse.json({ error: "Sede requerida" }, { status: 400 });
+  if (body.createUser && !body.email) return NextResponse.json({ error: "Email requerido para usuario" }, { status: 400 });
+  const code = await nextCode(context.admin, "employees", "code", "EMP", 3);
+  let userId: string | null = null;
+  let temporaryPassword: string | null = null;
+  if (body.createUser) {
+    temporaryPassword = generateTemporaryPassword();
+    const created = await context.admin.auth.admin.createUser({
+      email: body.email,
+      password: temporaryPassword,
+      email_confirm: false,
+      user_metadata: { role, first_name: body.firstName, last_name: body.lastName }
+    });
+    if (created.error || !created.data.user) {
+      return NextResponse.json({ error: created.error?.message ?? "No se pudo crear usuario" }, { status: 500 });
+    }
+    userId = created.data.user.id;
+  }
+  const payload = {
+    code,
+    user_id: userId,
+    branch_id: body.branchId || null,
+    role,
+    first_name: body.firstName,
+    last_name: body.lastName,
+    phone: body.phone ?? null,
+    email: body.email ?? null,
+    must_change_password: Boolean(userId),
+    onboarding_status: userId ? "pending_email_verification" : "active",
+    email_confirmed_at: null,
+    is_active: true
+  };
+  const { data, error } = await context.admin.from("employees").insert(payload).select("id,code").single();
+  if (error) {
+    if (userId) await context.admin.auth.admin.deleteUser(userId);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  await writeAuditLog(context.admin, {
+    actorUserId: context.employee.userId,
+    actorRole: context.employee.role,
+    actorBranchId: context.employee.branchId,
+    eventType: "create",
+    tableName: "employees",
+    recordId: data.id,
+    newData: { ...payload, temporaryPassword: undefined }
+  });
+  return NextResponse.json({ employee: data, temporaryPassword, emailVerificationRequired: Boolean(userId) });
+}
