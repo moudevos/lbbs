@@ -1,14 +1,12 @@
 import type { LandingData } from "@/lib/public/landing-data";
 
-export function LandingJsonLd({ data, appUrl }: { data: LandingData; appUrl: string }) {
-  const baseUrl = appUrl.replace(/\/$/, "");
-  const logo = `${baseUrl}/landing/logo-bajadita.jpg`;
-  const image = `${baseUrl}/landing/hero/hero-1.png`;
+const OFFICIAL_URL = "https://labajaditabarberstudio.com";
+
+export function LandingJsonLd({ data }: { data: LandingData; appUrl?: string }) {
   const sameAs = data.settings.socialLinks.filter((link) => /^https?:\/\//.test(link));
-  const phones = [...data.settings.phones, ...data.branches.map((branch) => branch.phone).filter(Boolean)];
   const realAddresses = data.branches.filter((branch) => branch.address);
   const reviews = data.reviews.filter((review) => review.rating > 0 && review.comment);
-  const averageRating = reviews.length > 0
+  const averageRating = reviews.length
     ? Math.round((reviews.reduce((sum, review) => sum + Number(review.rating), 0) / reviews.length) * 10) / 10
     : null;
 
@@ -17,13 +15,13 @@ export function LandingJsonLd({ data, appUrl }: { data: LandingData; appUrl: str
     "@type": "HealthAndBeautyBusiness",
     additionalType: "https://schema.org/BarberShop",
     name: "La Bajadita Barber Studio",
-    description: "Barbería premium en Iquitos con corte clásico, fade, barba, perfilado y atención personalizada.",
-    url: baseUrl,
-    logo,
-    image,
-    telephone: phones[0] ?? undefined,
+    url: OFFICIAL_URL,
+    logo: `${OFFICIAL_URL}/landing/logo-bajadita.png`,
+    image: `${OFFICIAL_URL}/landing/hero/hero-1.png`,
+    description: "Reserva tu corte en La Bajadita Barber Studio, barbería premium en Iquitos: corte clásico, fade, barba y perfilado.",
+    areaServed: ["Iquitos", "Maynas", "Loreto", "Perú"],
     priceRange: "S/",
-    areaServed: ["Iquitos", "Maynas", "Loreto", "Peru"],
+    telephone: data.mainContact.phone ?? undefined,
     sameAs: sameAs.length ? sameAs : undefined,
     address: realAddresses.length ? realAddresses.map((branch) => ({
       "@type": "PostalAddress",
@@ -37,34 +35,26 @@ export function LandingJsonLd({ data, appUrl }: { data: LandingData; appUrl: str
       itemOffered: {
         "@type": "Service",
         name: service.name,
-        description: service.description ?? `Servicio de barberia en Iquitos: ${service.name}`
+        description: service.description ?? `Servicio de barbería en Iquitos: ${service.name}`
       },
       priceCurrency: "PEN",
       price: service.price ?? undefined,
       availability: "https://schema.org/InStock",
-      url: `${baseUrl}/reservar`
+      url: `${OFFICIAL_URL}/reservar`
     })),
-    aggregateRating: averageRating && reviews.length > 0 ? {
+    aggregateRating: averageRating ? {
       "@type": "AggregateRating",
       ratingValue: averageRating,
       reviewCount: reviews.length,
       bestRating: 5,
       worstRating: 1
     } : undefined,
-    review: reviews.slice(0, 10).map((review) => ({
+    review: reviews.length ? reviews.slice(0, 10).map((review) => ({
       "@type": "Review",
-      author: {
-        "@type": "Person",
-        name: review.name
-      },
-      reviewRating: {
-        "@type": "Rating",
-        ratingValue: review.rating,
-        bestRating: 5,
-        worstRating: 1
-      },
+      author: { "@type": "Person", name: review.name },
+      reviewRating: { "@type": "Rating", ratingValue: review.rating, bestRating: 5, worstRating: 1 },
       reviewBody: review.comment
-    }))
+    })) : undefined
   };
 
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(stripUndefined(jsonLd)) }} />;
@@ -75,3 +65,4 @@ function stripUndefined(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined).map(([key, item]) => [key, stripUndefined(item)]));
 }
+

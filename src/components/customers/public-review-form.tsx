@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Swal from "sweetalert2";
 import { Star } from "lucide-react";
+import { trackEvent } from "@/lib/analytics/track-event";
 
 export function PublicReviewForm() {
   const [form, setForm] = useState({ displayName: "", phone: "", rating: "5", comment: "", isAnonymous: false });
@@ -23,6 +24,7 @@ export function PublicReviewForm() {
       return;
     }
     setForm({ displayName: "", phone: "", rating: "5", comment: "", isAnonymous: false });
+    trackEvent("review_submit", { rating: Number(form.rating) });
     await Swal.fire("Reseña enviada", "Quedara pendiente de aprobacion antes de publicarse.", "success");
   }
 

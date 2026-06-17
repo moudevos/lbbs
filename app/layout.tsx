@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import "./globals.css";
 
-const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001").replace(/\/$/, "");
+const appUrl = "https://labajaditabarberstudio.com";
 const seoTitle = "La Bajadita Barber Studio | Barbería premium en Iquitos";
-const seoDescription = "Reserva tu corte en La Bajadita Barber Studio, barbería premium en Iquitos con corte clásico, fade, barba, perfilado y atención personalizada.";
+const seoDescription = "Reserva tu corte en La Bajadita Barber Studio, barbería premium en Iquitos: corte clásico, fade, barba y perfilado.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
@@ -13,12 +14,12 @@ export const metadata: Metadata = {
   },
   description: seoDescription,
   keywords: [
-    "barberia en Iquitos",
+    "barbería en Iquitos",
     "barber shop Iquitos",
     "corte de cabello Iquitos",
     "corte fade Iquitos",
-    "barberia premium Iquitos",
-    "corte clasico Iquitos",
+    "barbería premium Iquitos",
+    "corte clásico Iquitos",
     "barba Iquitos",
     "La Bajadita Barber Studio"
   ],
@@ -26,9 +27,7 @@ export const metadata: Metadata = {
   authors: [{ name: "La Bajadita Barber Studio" }],
   creator: "La Bajadita Barber Studio",
   publisher: "La Bajadita Barber Studio",
-  alternates: {
-    canonical: "/"
-  },
+  alternates: { canonical: appUrl },
   openGraph: {
     title: seoTitle,
     description: seoDescription,
@@ -44,27 +43,22 @@ export const metadata: Metadata = {
     description: seoDescription,
     images: ["/landing/hero/hero-1.png"]
   },
-  category: "Barberia",
-  formatDetection: {
-    telephone: true,
-    address: true,
-    email: false
-  },
-  appleWebApp: {
-    capable: true,
-    title: "La Bajadita",
-    statusBarStyle: "black-translucent"
-  },
-  icons: {
-    icon: "/icon.png",
-    apple: "/apple-icon.png"
+  category: "Barbería",
+  formatDetection: { telephone: true, address: true, email: false },
+  appleWebApp: { capable: true, title: "La Bajadita", statusBarStyle: "black-translucent" },
+  icons: { icon: "/icon.png", apple: "/apple-icon.png" },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined
   }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        {children}
+        <GoogleAnalytics />
+      </body>
     </html>
   );
 }

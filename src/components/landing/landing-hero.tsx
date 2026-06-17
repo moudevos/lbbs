@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Crimson_Pro } from "next/font/google";
 import { ArrowRight, CalendarCheck, CalendarClock, MapPin, Scissors } from "lucide-react";
 import { HeroBackgroundCarousel } from "./hero-background-carousel";
+import { trackEvent } from "@/lib/analytics/track-event";
 
 const crimsonPro = Crimson_Pro({
   subsets: ["latin"],
@@ -33,7 +36,7 @@ export function LandingHero() {
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link href="/reservar" className="landing-primary-button inline-flex items-center justify-center gap-2 px-6 py-3 text-sm" aria-label="Reservar cita en La Bajadita Barber Studio">
+            <Link href="/reservar" onClick={() => trackEvent("reserve_click", { location: "hero" })} className="landing-primary-button inline-flex items-center justify-center gap-2 px-6 py-3 text-sm" aria-label="Reservar cita en La Bajadita Barber Studio">
               <CalendarCheck size={16} /> Reservar cita
             </Link>
             <a href="#servicios" className="landing-secondary-button inline-flex items-center justify-center gap-2 bg-black/20 px-6 py-3 text-sm backdrop-blur">

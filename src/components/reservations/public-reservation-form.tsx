@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,6 +10,7 @@ import {
   Check,
   MapPin,
   MessageCircle,
+  LoaderCircle,
   Pencil,
   RotateCcw,
   Scissors,
@@ -23,21 +25,21 @@ type Options = {
   branches: BranchOption[];
   services: ServiceOption[];
   barbers: BarberOption[];
+  mainContact?: { phone: string | null };
 };
 
-// Datos de contacto mostrados en la cabecera (editables aqui).
 const CONTACT_HOURS = "Lunes a Sábado · 9:30 AM a 9:30 PM";
-const CONTACT_PHONE = "+51 931 908 058";
-const CONTACT_WA = "https://wa.me/51931908058";
 
 const TOTAL_STEPS = 4;
 
-export function PublicReservationForm() {
+export function PublicReservationForm({ initialMainContact }: { initialMainContact: { phone: string | null } }) {
   const searchParams = useSearchParams();
   const requestedBranchId = searchParams.get("sede");
   const [options, setOptions] = useState<Options>({ branches: [], services: [], barbers: [] });
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [step, setStep] = useState(1);
   const [showAllBranches, setShowAllBranches] = useState(false);
   const [customNote, setCustomNote] = useState("");
@@ -63,11 +65,14 @@ export function PublicReservationForm() {
         } else if ((data.branches ?? []).length === 1) {
           setForm((current) => ({ ...current, branchId: data.branches[0].id }));
         }
-      });
+      })
+      .catch(() => swalThemed.fire("No se pudieron cargar las opciones", "Intenta nuevamente.", "error"))
+      .finally(() => setLoadingOptions(false));
   }, [requestedBranchId]);
 
   useEffect(() => {
     if (!form.branchId || !form.serviceId || !form.date) return;
+    setLoadingSlots(true);
     const params = new URLSearchParams({ branchId: form.branchId, serviceId: form.serviceId, date: form.date });
     if (form.employeeId) params.set("employeeId", form.employeeId);
     fetch(`/api/public/availability?${params}`)
@@ -75,7 +80,9 @@ export function PublicReservationForm() {
       .then((data) => {
         setSlots(data.slots ?? []);
         setForm((current) => ({ ...current, time: data.slots?.[0] ?? "" }));
-      });
+      })
+      .catch(() => setSlots([]))
+      .finally(() => setLoadingSlots(false));
   }, [form.branchId, form.serviceId, form.employeeId, form.date]);
 
   const branchBarbers = options.barbers.filter((barber) => !form.branchId || barber.branchId === form.branchId);
@@ -86,6 +93,14 @@ export function PublicReservationForm() {
 
   const selectedBranch = options.branches.find((branch) => branch.id === form.branchId) ?? null;
   const selectedService = branchServices.find((service) => service.id === form.serviceId) ?? null;
+  const contactPhone = selectedBranch?.phone || options.mainContact?.phone || initialMainContact.phone;
+  const contactMessage = selectedBranch && selectedService
+    ? `Hola, quiero consultar por ${selectedService.name} en ${selectedBranch.name} de La Bajadita Barber Studio.`
+    : "Hola, quiero consultar una atención en La Bajadita Barber Studio.";
+  const contactDigits = contactPhone?.replace(/\D/g, "") ?? "";
+  const contactUrl = contactPhone
+    ? `https://wa.me/${contactDigits.startsWith("51") ? contactDigits : `51${contactDigits}`}?text=${encodeURIComponent(contactMessage)}`
+    : null;
   const isCustomSelected = Boolean(customService && form.serviceId === customService.id);
 
   function goTo(next: number) {
@@ -108,6 +123,7 @@ export function PublicReservationForm() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
 
     if (!form.branchId || !form.serviceId || !form.customerName || !form.customerPhone || !form.date || !form.time) {
       await swalThemed.fire("Datos incompletos", "Completa sede, servicio, cliente, fecha y hora.", "warning");
@@ -154,11 +170,17 @@ export function PublicReservationForm() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
-      <BrandHeader />
+    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-10">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <Link href="/" className="landing-secondary-button inline-flex items-center gap-2 px-4 py-2 text-sm"><ArrowLeft size={16} /> Volver al inicio</Link>
+        <Link href="/" className="text-sm text-[var(--text-muted)] transition hover:text-[var(--landing-gold-soft)]">Abrir landing</Link>
+      </div>
+      <BrandHeader contactPhone={contactPhone} contactUrl={contactUrl} />
       <ProgressBar step={step} />
 
-      <div className="glass-panel gold-border mt-6 rounded-3xl p-5 shadow-[0_30px_80px_-40px_rgba(212,175,55,0.6)] sm:p-7">
+      <div className="mt-6 rounded-3xl border border-[var(--landing-border)] bg-[var(--landing-panel)]/90 p-5 shadow-[0_35px_100px_-45px_rgba(234,157,77,0.55)] backdrop-blur sm:p-7">
+        {loadingOptions ? <LoadingPanel label="Cargando sedes, servicios y especialistas..." /> : null}
+        {!loadingOptions ? <>
         {step === 1 ? (
           <StepBranch
             branches={options.branches}
@@ -191,18 +213,20 @@ export function PublicReservationForm() {
             form={form}
             slots={slots}
             loading={loading}
+            loadingSlots={loadingSlots}
             summary={{ branch: selectedBranch?.name ?? null, service: selectedService?.name ?? null }}
             onBack={() => goTo(3)}
             onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
             onSubmit={submit}
           />
         ) : null}
+        </> : null}
       </div>
     </div>
   );
 }
 
-function BrandHeader() {
+function BrandHeader({ contactPhone, contactUrl }: { contactPhone: string | null; contactUrl: string | null }) {
   return (
     <header className="text-center">
       <Divider />
@@ -210,9 +234,7 @@ function BrandHeader() {
       <p className="mt-2 text-xs font-semibold tracking-[0.42em] text-[var(--gold-soft)] sm:text-sm">BARBER STUDIO · IQUITOS</p>
       <Divider className="mt-3" />
       <p className="mt-4 text-sm text-[var(--text-muted)]">Atención de {CONTACT_HOURS}</p>
-      <a href={CONTACT_WA} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-base font-bold text-[var(--whatsapp)]">
-        <MessageCircle size={18} /> {CONTACT_PHONE}
-      </a>
+      {contactUrl ? <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#4ade80]/40 bg-[#4ade80]/5 px-4 py-2 text-sm font-bold text-[#4ade80]"><MessageCircle size={18} /> Consultar por WhatsApp {contactPhone}</a> : null}
     </header>
   );
 }
@@ -431,6 +453,7 @@ function StepDetails({
   form,
   slots,
   loading,
+  loadingSlots,
   summary,
   onBack,
   onChange,
@@ -439,6 +462,7 @@ function StepDetails({
   form: { customerName: string; customerPhone: string; date: string; time: string; observations: string };
   slots: string[];
   loading: boolean;
+  loadingSlots: boolean;
   summary: { branch: string | null; service: string | null };
   onBack: () => void;
   onChange: (patch: Partial<{ customerName: string; customerPhone: string; date: string; time: string; observations: string }>) => void;
@@ -474,7 +498,9 @@ function StepDetails({
 
         <div className="grid gap-2">
           <span className="field-label">Hora disponible</span>
-          {slots.length === 0 ? (
+          {loadingSlots ? (
+            <LoadingPanel label="Buscando horarios disponibles..." compact />
+          ) : slots.length === 0 ? (
             <p className="rounded-xl border border-[var(--border-soft)] bg-black/40 px-4 py-3 text-sm text-[var(--text-muted)]">No hay horarios disponibles para esta fecha. Pruebe con otro día.</p>
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -494,8 +520,16 @@ function StepDetails({
       </div>
 
       <button type="submit" disabled={loading} className="btn-gold mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-bold tracking-wide">
-        {loading ? "ENVIANDO…" : "CONFIRMAR MI RESERVA"} <Check size={18} strokeWidth={3} />
+        {loading ? <><LoaderCircle size={18} className="animate-spin" /> ENVIANDO...</> : <>CONFIRMAR MI RESERVA <Check size={18} strokeWidth={3} /></>}
       </button>
     </form>
+  );
+}
+
+function LoadingPanel({ label, compact = false }: { label: string; compact?: boolean }) {
+  return (
+    <div className={`flex items-center justify-center gap-3 rounded-2xl border border-[var(--landing-border)] bg-black/25 text-sm text-[var(--text-muted)] ${compact ? "px-4 py-3" : "min-h-48 p-6"}`}>
+      <LoaderCircle className="animate-spin text-[var(--landing-gold)]" size={20} /> {label}
+    </div>
   );
 }

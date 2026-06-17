@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolvePublicImageUrl } from "@/lib/storage/resolve-public-image-url";
 import { dedupeById } from "@/lib/utils/dedupe-by-id";
+import { getMainContact, type PublicContact } from "@/lib/public-contact/get-main-contact";
 
 export type LandingService = {
   id: string;
@@ -32,6 +33,7 @@ export type LandingReview = {
 
 export type LandingBranch = {
   id: string;
+  code: string;
   name: string;
   address: string | null;
   phone: string | null;
@@ -43,12 +45,24 @@ export type LandingSettings = {
   socialLinks: string[];
 };
 
+export type LandingGalleryItem = {
+  id: string;
+  title: string;
+  description: string;
+  serviceName: string;
+  barberName: string;
+  imageUrl: string;
+  altText: string;
+};
+
 export type LandingData = {
   services: LandingService[];
   team: LandingTeamMember[];
   reviews: LandingReview[];
   branches: LandingBranch[];
   settings: LandingSettings;
+  gallery: LandingGalleryItem[];
+  mainContact: PublicContact;
 };
 
 const fallbackServices: LandingService[] = [
@@ -59,12 +73,14 @@ const fallbackServices: LandingService[] = [
 
 export async function getLandingData(): Promise<LandingData> {
   const admin = createAdminClient();
-  const [services, team, reviews, branches, settings] = await Promise.all([
+  const [services, team, reviews, branches, settings, gallery, mainContact] = await Promise.all([
     getServices(admin),
     getTeam(admin),
     getReviews(admin),
     getBranches(admin),
-    getSettings(admin)
+    getSettings(admin),
+    getGallery(admin),
+    getMainContact(admin)
   ]);
 
   return {
@@ -72,8 +88,50 @@ export async function getLandingData(): Promise<LandingData> {
     team,
     reviews,
     branches,
-    settings
+    settings,
+    gallery,
+    mainContact
   };
+}
+
+export async function getLandingGallery(limit = 20): Promise<LandingGalleryItem[]> {
+  return getGallery(createAdminClient(), limit);
+}
+
+async function getGallery(admin: ReturnType<typeof createAdminClient>, limit = 20) {
+  const { data, error } = await admin
+    .from("landing_assets")
+    .select("id,title,description,service_name,barber_name,image_path,image_url,path,alt_text,sort_order,created_at")
+    .eq("asset_type", "work_gallery")
+    .eq("is_active", true)
+    .order("sort_order")
+    .order("created_at", { ascending: false })
+    .limit(Math.min(limit, 20));
+
+  if (error) return [];
+
+  const unique = dedupeById(data ?? []);
+  const resolved = await Promise.all(unique.map(async (item) => {
+    const title = item.title?.trim() || "Trabajo de barberia";
+    const imageUrl = await resolvePublicImageUrl({
+      admin,
+      bucket: "landing-assets",
+      path: item.image_path || item.path,
+      fallback: null
+    });
+    if (!imageUrl) return null;
+    return {
+      id: item.id,
+      title,
+      description: item.description?.trim() || "",
+      serviceName: item.service_name?.trim() || "Servicio personalizado",
+      barberName: item.barber_name?.trim() || "Equipo La Bajadita",
+      imageUrl,
+      altText: item.alt_text?.trim() || `${title} en La Bajadita Barber Studio, barberia en Iquitos`
+    };
+  }));
+
+  return resolved.filter((item): item is LandingGalleryItem => Boolean(item));
 }
 
 async function getServices(admin: ReturnType<typeof createAdminClient>) {
@@ -152,13 +210,14 @@ async function getReviews(admin: ReturnType<typeof createAdminClient>) {
 async function getBranches(admin: ReturnType<typeof createAdminClient>) {
   const { data, error } = await admin
     .from("branches")
-    .select("id,name,address,phone")
+    .select("id,code,name,address,phone")
     .eq("is_active", true)
     .order("name");
 
   if (error) return [];
   return (data ?? []).map((branch) => ({
     id: branch.id,
+    code: branch.code,
     name: branch.name,
     address: branch.address ?? null,
     phone: branch.phone ?? null

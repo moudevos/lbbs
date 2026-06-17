@@ -15,7 +15,7 @@ import { getLandingData } from "@/lib/public/landing-data";
 export const revalidate = 300;
 
 function appUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001").replace(/\/$/, "");
+  return "https://labajaditabarberstudio.com";
 }
 
 export default async function HomePage() {
@@ -31,11 +31,11 @@ export default async function HomePage() {
       <WhyChooseUs />
       <AboutStudio />
       <ServicesMarquee services={landingData.services} />
-      <WorkCollage />
+      <WorkCollage items={landingData.gallery} socialLinks={landingData.settings.socialLinks} phones={landingData.mainContact.phone ? [landingData.mainContact.phone] : landingData.settings.phones} />
       <TeamSection team={landingData.team} />
       <TestimonialsMarquee reviews={landingData.reviews} />
-      <LocationHours branches={landingData.branches} settings={landingData.settings} />
-      <LandingFooter branches={landingData.branches} settings={landingData.settings} />
+      <LocationHours branches={landingData.branches} mainPhone={landingData.mainContact.phone} />
+      <LandingFooter branches={landingData.branches} settings={landingData.settings} mainPhone={landingData.mainContact.phone} />
     </main>
   );
 }

@@ -6,6 +6,7 @@ export type ReservationOption = {
 };
 
 export type BranchOption = ReservationOption & {
+  code: string;
   phone: string | null;
 };
 

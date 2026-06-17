@@ -1,7 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Facebook, Instagram, MapPin, MessageCircle, Music2 } from "lucide-react";
 import type { LandingBranch, LandingSettings } from "@/lib/public/landing-data";
+import { trackEvent } from "@/lib/analytics/track-event";
 
 const navLinks = [
   { label: "Inicio", href: "#inicio" },
@@ -21,19 +24,18 @@ const socialIcons = [
   { matcher: "tiktok", label: "TikTok", icon: Music2 }
 ];
 
-export function LandingFooter({ branches, settings }: { branches: LandingBranch[]; settings: LandingSettings }) {
+export function LandingFooter({ branches, settings, mainPhone }: { branches: LandingBranch[]; settings: LandingSettings; mainPhone: string | null }) {
   const socials = settings.socialLinks
     .filter((href) => /^https?:\/\//.test(href))
     .map((href) => {
       const found = socialIcons.find((item) => href.toLowerCase().includes(item.matcher));
       return { label: found?.label ?? "Red social", href, icon: found?.icon ?? MessageCircle };
     });
-  const phones = settings.phones.length ? settings.phones : branches.map((branch) => branch.phone).filter(Boolean) as string[];
 
   return (
-    <footer id="contacto" className="relative scroll-mt-24 overflow-hidden border-t border-[var(--landing-border)] bg-black py-12">
-      <div className="absolute inset-0 bg-black bg-[url('/landing/footer/footer-bg.webp')] bg-cover bg-center" />
-      <div className="absolute inset-0 bg-black/75" />
+    <footer id="contacto" className="relative scroll-mt-24 overflow-hidden border-t border-[var(--landing-border)] py-12">
+      <div className="absolute inset-0 bg-[url('/landing/footer/footer-bg.webp')] bg-cover bg-center bg-no-repeat md:bg-fixed" />
+      <div className="absolute inset-0 bg-black/55" />
       <div className="relative mx-auto grid max-w-7xl gap-10 px-6 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <Image src="/landing/logo-bajadita.png" alt="La Bajadita Barber Studio" width={190} height={74} className="h-14 w-auto object-contain" />
@@ -76,8 +78,8 @@ export function LandingFooter({ branches, settings }: { branches: LandingBranch[
             )) : <li>Direcciones y horarios personalizables desde el panel de administración.</li>}
           </ul>
           <div className="mt-5 flex flex-wrap gap-2">
-            {phones[0] ? <a href={`https://wa.me/51${phones[0].replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="landing-secondary-button inline-flex items-center gap-2 px-3 py-2 text-xs" aria-label="Escribir por WhatsApp a La Bajadita Barber Studio"><MessageCircle size={14} /> WhatsApp</a> : null}
-            {socials.map(({ label, href, icon: Icon }) => <a key={href} href={href} className="landing-secondary-button inline-flex items-center gap-2 px-3 py-2 text-xs" aria-label={label} target="_blank" rel="noreferrer"><Icon size={14} /> {label}</a>)}
+            {mainPhone ? <a href={`https://wa.me/${mainPhone.replace(/\D/g, "").startsWith("51") ? mainPhone.replace(/\D/g, "") : `51${mainPhone.replace(/\D/g, "")}`}`} onClick={() => trackEvent("whatsapp_click", { location: "footer" })} target="_blank" rel="noreferrer" className="landing-secondary-button inline-flex items-center gap-2 px-3 py-2 text-xs" aria-label="Escribir por WhatsApp a La Bajadita Barber Studio"><MessageCircle size={14} /> WhatsApp</a> : null}
+            {socials.map(({ label, href, icon: Icon }) => <a key={href} href={href} onClick={() => trackEvent("social_click", { network: label, location: "footer" })} className="landing-secondary-button inline-flex items-center gap-2 px-3 py-2 text-xs" aria-label={label} target="_blank" rel="noreferrer"><Icon size={14} /> {label}</a>)}
           </div>
         </div>
       </div>

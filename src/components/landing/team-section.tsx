@@ -1,8 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { CalendarCheck, MapPin } from "lucide-react";
 import { LandingSectionTitle } from "./landing-section-title";
 import type { LandingTeamMember } from "@/lib/public/landing-data";
+import { trackEvent } from "@/lib/analytics/track-event";
 
 export function TeamSection({ team }: { team: LandingTeamMember[] }) {
   return (
@@ -26,7 +29,7 @@ export function TeamSection({ team }: { team: LandingTeamMember[] }) {
                   {member.nickname ? <p className="mt-1 text-sm text-[var(--text-muted)]">{member.fullName}</p> : null}
                   <p className="mt-3 text-sm text-[var(--gold-soft)]">{member.specialty}</p>
                   <p className="mt-3 flex items-center gap-2 text-xs text-[var(--text-faint)]"><MapPin size={14} className="text-[var(--gold-soft)]" /> {member.branchName ?? "La Bajadita, Iquitos"}</p>
-                  <Link href="/reservar" className="landing-secondary-button mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium">
+                  <Link href="/reservar" onClick={() => trackEvent("team_barber_reserve_click", { barber_id: member.id, barber_name: member.nickname || member.fullName })} className="landing-secondary-button mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium">
                     <CalendarCheck size={15} /> Reservar con este barbero
                   </Link>
                 </div>

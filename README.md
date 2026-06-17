@@ -33,8 +33,10 @@ Crear `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://labajaditabarberstudio.com
 DATABASE_URL=
+NEXT_PUBLIC_GA_MEASUREMENT_ID=
+NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` solo se usa en servidor. No debe importarse en componentes cliente.
@@ -204,6 +206,11 @@ La landing consume:
 * `GET /api/public/services`
 * `GET /api/public/team`
 * `GET /api/public/reviews`
+* `GET /api/public/gallery`
+
+La galeria se administra en `/app/control/landing/galeria` por usuarios admin. Requiere ejecutar `supabase/sql/022_landing_gallery_dynamic.sql`.
+
+La configuracion de GA4 y Google Search Console esta documentada en `docs/GOOGLE_ANALYTICS_SEARCH_CONSOLE.md`.
 
 Las reseñas publicas se envian desde `/cliente/resena` y quedan pendientes hasta aprobacion en `/app/control/resenas`.
 

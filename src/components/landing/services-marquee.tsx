@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, Facebook, Instagram, MessageCircle, Music2, Scissors } from "lucide-react";
 import { LandingSectionTitle } from "./landing-section-title";
 import type { LandingService } from "@/lib/public/landing-data";
+import { trackEvent } from "@/lib/analytics/track-event";
 
 function ServiceCard({ service }: { service: LandingService }) {
   return (
@@ -14,7 +17,7 @@ function ServiceCard({ service }: { service: LandingService }) {
         <p className="mt-1 text-sm text-[var(--landing-gold-soft)]">{service.durationMinutes} min · {service.price == null ? "Consultar" : `S/ ${Number(service.price).toFixed(2)}`}</p>
         <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]">{service.description || `Servicio profesional de barbería en Iquitos${service.branchName ? ` - ${service.branchName}` : ""}.`}</p>
       </div>
-      <Link href="/reservar" className="landing-secondary-button mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium">
+      <Link href="/reservar" onClick={() => trackEvent("service_click", { service_id: service.id, service_name: service.name })} className="landing-secondary-button mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium">
         Reservar <ArrowRight size={15} />
       </Link>
     </article>

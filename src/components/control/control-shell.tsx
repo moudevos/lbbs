@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Award, BarChart3, CalendarCheck, CalendarDays, ChevronDown, Gift, MonitorSmartphone, MessageSquareText, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
+import { Award, BarChart3, CalendarCheck, CalendarDays, ChevronDown, Gift, Images, MonitorSmartphone, MessageSquareText, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { CurrentEmployee } from "@/lib/auth/types";
 import { getModulesForRole } from "@/lib/auth/permissions";
@@ -33,6 +33,7 @@ const icons = {
   Bonos: Award,
   Resenas: MessageSquareText,
   Rankings: BarChart3,
+  "Landing / Galeria": Images,
   Dispositivos: MonitorSmartphone,
   Configuracion: Settings,
   Auditoria: ShieldCheck,
@@ -158,7 +159,7 @@ function Brand() {
 function groupModules(items: { label: string; href: string }[]) {
   const groups = [
     { title: "Gestion", labels: ["Clientes", "Empleados", "Servicios", "Productos", "Sedes", "Rewards"] },
-    { title: "Comercial", labels: ["Resenas", "Rankings", "WhatsApp/Plantillas", "Dispositivos"] },
+    { title: "Comercial", labels: ["Landing / Galeria", "Resenas", "Rankings", "WhatsApp/Plantillas", "Dispositivos"] },
     { title: "Finanzas/Produccion", labels: ["Produccion", "Bonos", "Liquidaciones"] },
     { title: "Sistema", labels: ["Configuracion", "Auditoria"] }
   ];
