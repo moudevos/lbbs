@@ -11,8 +11,12 @@ import { AboutStudio } from "@/components/landing/about-studio";
 import { LocationHours } from "@/components/landing/location-hours";
 import { PageVisibilityTitle } from "@/components/landing/page-visibility-title";
 import { getLandingData } from "@/lib/public/landing-data";
+import type { Metadata } from "next";
 
 export const revalidate = 300;
+export const metadata: Metadata = {
+  alternates: { canonical: "https://labajaditabarberstudio.com" }
+};
 
 function appUrl() {
   return "https://labajaditabarberstudio.com";

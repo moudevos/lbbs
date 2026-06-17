@@ -27,7 +27,6 @@ export const metadata: Metadata = {
   authors: [{ name: "La Bajadita Barber Studio" }],
   creator: "La Bajadita Barber Studio",
   publisher: "La Bajadita Barber Studio",
-  alternates: { canonical: appUrl },
   openGraph: {
     title: seoTitle,
     description: seoDescription,
