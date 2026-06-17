@@ -75,7 +75,7 @@ export function ProductionReport() {
             <option value="bonuses">Bonos</option>
           </select>
           <button className="rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" onClick={load}>Filtrar</button>
-          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href={`/api/control/reports/production/export?from=${from}&to=${to}&type=${type}&branch_id=${branchId}${barberId ? `&barber_id=${barberId}` : ""}`}>Exportar CSV</a>
+          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href={`/api/control/reports/production/export?from=${from}&to=${to}&type=${type}&branch_id=${branchId}${barberId ? `&barber_id=${barberId}` : ""}`}>Exportar XLSX</a>
         </div>
       </div>
 

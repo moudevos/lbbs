@@ -2,14 +2,13 @@
 
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Plus, ReceiptText, Trash2 } from "lucide-react";
-import { PaymentSplitEditor } from "./payment-split-editor";
+import Link from "next/link";
+import { Plus, ReceiptText, Trash2 } from "lucide-react";
 import { PaymentMethodBadge } from "./payment-method-badge";
 import { AttentionDraftSummary } from "@/components/attentions/attention-draft-summary";
 import { AttentionSaveBar } from "@/components/attentions/attention-save-bar";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { BarberOption, BranchOption, ServiceOption } from "@/lib/reservations/types";
-import type { PaymentMethod, PaymentSplit } from "@/lib/service-orders/types";
 
 type Order = Record<string, any>;
 type ProductOption = { id: string; sku: string; name: string; sale_price: number; category?: string | null; counts_for_seller_credit?: boolean; seller_credit_amount?: number; branch_id: string | null; product_branch_stock?: { branch_id: string; stock_current: number }[] };
@@ -21,9 +20,6 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
   const [me, setMe] = useState<{ role: string; branchId: string | null } | null>(null);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [open, setOpen] = useState(createOpenInitially);
-  const [paying, setPaying] = useState<Order | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("efectivo");
-  const [splits, setSplits] = useState<PaymentSplit[]>([]);
 
   async function load() {
     const params = new URLSearchParams({ date });
@@ -54,21 +50,6 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
     return () => window.removeEventListener("branch-scope-change", listener);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
-
-  async function pay(order: Order) {
-    const body = paymentMethod === "mixto"
-      ? { method: paymentMethod, splits }
-      : { method: paymentMethod, splits: [{ method: paymentMethod, amount: Number(order.total), reference: "" }] };
-    const response = await fetch(`/api/control/service-orders/${order.id}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const data = await response.json();
-    if (!response.ok) {
-      await showError("No se pudo registrar pago", data.error ?? "Revisa los montos.");
-      return;
-    }
-    setPaying(null);
-    await load();
-    await showSuccess("Pago registrado");
-  }
 
   async function voidOrder(id: string) {
     if (!(await showConfirm("Anular servicio", "El servicio quedara anulado y auditado."))) return;
@@ -108,7 +89,10 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
         {orders.map((order) => {
           const customer = Array.isArray(order.customers) ? order.customers[0] : order.customers;
           const barber = Array.isArray(order.employees) ? order.employees[0] : order.employees;
-          const service = Array.isArray(order.services) ? order.services[0] : order.services;
+          const itemNames = (order.service_order_items ?? [])
+            .filter((item: any) => item.item_type !== "reward_discount" && item.item_type !== "discount")
+            .map((item: any) => item.name ?? item.description)
+            .filter(Boolean);
           const rewards = Array.isArray(customer?.customer_reward_accounts) ? customer.customer_reward_accounts[0] : customer?.customer_reward_accounts;
           return (
             <article key={order.id} className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
@@ -116,7 +100,7 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
                 <div>
                   <p className="text-xs uppercase tracking-[0.16em] text-[var(--gold-soft)]">{order.status}</p>
                   <h2 className="mt-1 font-semibold">{customer?.full_name ?? "Cliente"}</h2>
-                  <p className="text-sm text-[var(--text-muted)]">{service?.name ?? "Venta de productos"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p>
+                  <p className="text-sm text-[var(--text-muted)]">{itemNames.length ? itemNames.join(" + ") : "Sin items registrados"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p>
                 </div>
                 <p className="text-lg font-bold text-[var(--gold)]">S/ {Number(order.total ?? 0).toFixed(2)}</p>
               </div>
@@ -125,7 +109,7 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
                 {(order.payment_details ?? []).map((payment: any, index: number) => <PaymentMethodBadge key={index} method={payment.method} />)}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {order.status !== "pagado" && order.status !== "anulado" && !mine ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={() => { setPaying(order); setPaymentMethod("efectivo"); setSplits([{ method: "efectivo", amount: Number(order.total), reference: "" }]); }}><ReceiptText size={16} /> Pagar</button> : null}
+                {order.status !== "pagado" && order.status !== "anulado" && !mine ? <Link className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={`/app/control/atenciones/${order.id}?focus=payment`}><ReceiptText size={16} /> Pagar</Link> : null}
                 {Number(rewards?.available_rewards ?? 0) > 0 && order.status !== "anulado" && !mine ? (
                   <>
                     <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs" onClick={() => redeem(order.id, "classic_cut")}>Corte gratis</button>
@@ -138,22 +122,6 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
           );
         })}
       </div>
-
-      {paying ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 px-4">
-          <div className="w-full max-w-xl rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-main)] p-5">
-            <h2 className="text-xl font-semibold">Registrar pago</h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">Total: S/ {Number(paying.total).toFixed(2)}</p>
-            <div className="mt-4">
-              <PaymentSplitEditor total={Number(paying.total)} method={paymentMethod} splits={splits} onMethodChange={setPaymentMethod} onSplitsChange={setSplits} />
-            </div>
-            <div className="mt-5 flex gap-2">
-              <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" onClick={() => pay(paying)}><BadgeCheck size={16} /> Guardar pago</button>
-              <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={() => setPaying(null)}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

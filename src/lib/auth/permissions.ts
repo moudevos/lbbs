@@ -13,7 +13,7 @@ export const controlModules: ControlModule[] = [
   { label: "Atenciones", href: "/app/control/atenciones", roles: ["admin", "recepcion"] },
   { label: "Caja", href: "/app/control/caja", roles: ["admin", "recepcion"] },
   { label: "Productos", href: "/app/control/productos", roles: ["admin", "recepcion"] },
-  { label: "Produccion", href: "/app/control/produccion", roles: ["admin", "recepcion", "barbero"] },
+  { label: "Produccion", href: "/app/control/produccion", roles: ["admin"] },
   { label: "Liquidaciones", href: "/app/control/liquidaciones", roles: ["admin", "barbero"] },
   { label: "Bonos", href: "/app/control/bonos", roles: ["admin"] },
   { label: "Resenas", href: "/app/control/resenas", roles: ["admin", "recepcion"] },

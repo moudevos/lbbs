@@ -23,6 +23,7 @@ export function buildPaymentSplits(method: PaymentMethod, total: number, splits?
 }
 
 export function validatePaymentSplits(total: number, splits: PaymentSplit[]) {
+  if (normalizeMoney(total) === 0) return null;
   if (splits.length === 0) return "Debe registrar al menos un pago";
   if (splits.some((split) => normalizeMoney(split.amount) <= 0)) {
     return "Cada pago debe tener metodo valido y monto mayor a 0";
@@ -32,6 +33,7 @@ export function validatePaymentSplits(total: number, splits: PaymentSplit[]) {
 }
 
 export const missingAttentionItemsMessage = "Agrega al menos un servicio, adicional o producto antes de guardar la atención.";
+export const missingPaymentItemsMessage = "Agrega al menos un servicio, adicional o producto antes de registrar el pago.";
 
 export async function createServiceOrder({
   admin,
@@ -262,24 +264,26 @@ export async function payServiceOrder(admin: AdminClient, serviceOrderId: string
 
   if (error || !order) return NextResponse.json({ error: error?.message ?? "Servicio no encontrado" }, { status: 404 });
   if (order.status === "anulado") return NextResponse.json({ error: "No se puede pagar un servicio anulado" }, { status: 400 });
-  const hasBillableItem = (order.service_order_items ?? []).some((item: any) => ["service", "custom_service", "manual_extra", "product"].includes(item.item_type));
-  if (!hasBillableItem) return NextResponse.json({ error: missingAttentionItemsMessage }, { status: 400 });
+  const hasBillableItem = (order.service_order_items ?? []).some((item: any) => ["service", "custom_service", "manual_extra", "product", "snack"].includes(item.item_type));
+  if (!hasBillableItem) return NextResponse.json({ error: missingPaymentItemsMessage }, { status: 400 });
 
   const total = normalizeMoney(order.total);
-  const paymentSplits = buildPaymentSplits(method, total, splits);
+  const paymentSplits = total === 0 ? [] : buildPaymentSplits(method, total, splits);
   const validation = validatePaymentSplits(total, paymentSplits);
   if (validation) return NextResponse.json({ error: validation }, { status: 400 });
 
   await admin.from("payment_details").delete().eq("service_order_id", serviceOrderId);
-  const { error: paymentError } = await admin.from("payment_details").insert(
-    paymentSplits.map((split) => ({
-      service_order_id: serviceOrderId,
-      method: split.method,
-      amount: split.amount,
-      reference: split.reference ?? null
-    }))
-  );
-  if (paymentError) return NextResponse.json({ error: paymentError.message }, { status: 500 });
+  if (paymentSplits.length > 0) {
+    const { error: paymentError } = await admin.from("payment_details").insert(
+      paymentSplits.map((split) => ({
+        service_order_id: serviceOrderId,
+        method: split.method,
+        amount: split.amount,
+        reference: split.reference ?? null
+      }))
+    );
+    if (paymentError) return NextResponse.json({ error: paymentError.message }, { status: 500 });
+  }
 
   const { error: updateError } = await admin
     .from("service_orders")
@@ -306,11 +310,21 @@ export async function applyRewardToServiceOrder({
 }) {
   const { data: order, error } = await admin
     .from("service_orders")
-    .select("id,customer_id,branch_id,total,subtotal,discount_amount,total_paid,status")
+    .select("id,customer_id,branch_id,total,subtotal,discount_amount,total_paid,status,reward_redemption_id,service_order_items(item_type,name,description)")
     .eq("id", serviceOrderId)
     .maybeSingle();
   if (error || !order) return { error: error?.message ?? "Servicio no encontrado" };
-  if (order.status !== "registrado") return { error: "Solo se puede canjear reward antes de pagar" };
+  if (!["registrado", "pendiente_pago"].includes(order.status)) return { error: "Solo se puede canjear reward antes de pagar" };
+  if (order.reward_redemption_id || (order.service_order_items ?? []).some((item: any) => item.item_type === "reward_discount")) {
+    return { error: "Esta atencion ya tiene un reward aplicado" };
+  }
+  const currentTotal = normalizeMoney(order.total);
+  if (rewardType === "voucher_30" && currentTotal <= 30) return { error: "El vale S/30 solo aplica cuando el total es mayor a S/30" };
+  const hasClassicCut = (order.service_order_items ?? []).some((item: any) => {
+    const text = `${item.name ?? ""} ${item.description ?? ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return ["service", "custom_service"].includes(item.item_type) && text.includes("corte") && text.includes("clasico");
+  });
+  if (rewardType === "classic_cut" && !hasClassicCut) return { error: "El corte gratis solo aplica si la atencion incluye Corte Clasico" };
 
   const redeemed = await redeemCustomerReward({
     admin,

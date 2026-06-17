@@ -96,7 +96,7 @@ export function LiquidationsManager() {
           </select>
           <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" onClick={calculate}><Calculator size={16} /> Calcular</button>
           <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={createDraft}><ReceiptText size={16} /> Borrador</button>
-          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href="/api/control/reports/liquidations/export">Exportar CSV</a>
+          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href="/api/control/reports/liquidations/export">Exportar XLSX</a>
         </div>
       </div>
       {loading ? <TableSkeleton /> : null}

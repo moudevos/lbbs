@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json()) as CreateInternalReservationBody;
-  const status = body.status ?? "pendiente";
+  const status = body.status ?? "contactado";
 
   if (!initialStatuses.includes(status)) {
     return NextResponse.json({ error: "Estado inicial invalido" }, { status: 400 });
@@ -215,6 +215,7 @@ export async function POST(request: NextRequest) {
     tableName: "reservations",
     recordId: reservation.id,
     newData: {
+      event: status === "contactado" ? "reservation_created_internal_contacted" : "reservation_created_internal",
       source: "interno",
       status,
       branch_id: branchId,

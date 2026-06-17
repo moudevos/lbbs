@@ -1,12 +1,20 @@
 import { GET as productionGet } from "../../../production/route";
-import { buildCsv, csvResponse } from "@/lib/reports/csv";
+import { xlsxResponse } from "@/lib/excel/export-xlsx";
 
 export async function GET(request: Request) {
   const response = await productionGet(request as any);
   if (response.status >= 400) return response;
   const data = await response.json();
-  return csvResponse("reporte-produccion.csv", buildCsv(
-    ["fecha", "empleado", "sede", "tipo", "item", "bruto", "deduccion", "produccion", "porcentaje", "ganancia"],
-    (data.rows ?? []).map((row: any) => [row.counted_at, row.barberName ?? row.sellerName, row.branchName, row.entry_type, row.description, row.gross_amount, row.deduction_amount, row.production_amount, row.percentage, row.barber_earning])
-  ));
+  return xlsxResponse("reporte-produccion.xlsx", "produccion", (data.rows ?? []).map((row: any) => ({
+    fecha: row.counted_at,
+    empleado: row.barberName ?? row.sellerName,
+    sede: row.branchName,
+    tipo: row.entry_type,
+    item: row.description,
+    bruto: row.gross_amount,
+    deduccion: row.deduction_amount,
+    produccion: row.production_amount,
+    porcentaje: row.percentage,
+    ganancia: row.barber_earning
+  })));
 }

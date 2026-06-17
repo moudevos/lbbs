@@ -90,6 +90,9 @@ async function evaluateBonuses(admin: any, from: string, to: string) {
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
   if (!context.ok) return context.error;
+  if (context.employee.role !== "admin") {
+    return NextResponse.json({ error: "Solo admin puede acceder a produccion" }, { status: 403 });
+  }
 
   const { searchParams } = request.nextUrl;
   const today = new Date().toISOString().slice(0, 10);
@@ -109,15 +112,8 @@ export async function GET(request: NextRequest) {
     .lte("counted_at", `${to}T23:59:59.999Z`)
     .order("counted_at", { ascending: false });
 
-  if (context.employee.role === "admin") {
-    if (scope.mode === "branch") query = query.eq("branch_id", scope.branchId);
-    if (barberId) query = query.or(`barber_id.eq.${barberId},sold_by_employee_id.eq.${barberId}`);
-  } else if (context.employee.role === "recepcion") {
-    query = query.eq("branch_id", context.employee.branchId);
-    if (barberId) query = query.or(`barber_id.eq.${barberId},sold_by_employee_id.eq.${barberId}`);
-  } else {
-    query = query.or(`barber_id.eq.${context.employee.employeeId},sold_by_employee_id.eq.${context.employee.employeeId}`);
-  }
+  if (scope.mode === "branch") query = query.eq("branch_id", scope.branchId);
+  if (barberId) query = query.or(`barber_id.eq.${barberId},sold_by_employee_id.eq.${barberId}`);
 
   if (type === "services") query = query.eq("entry_type", "service");
   if (type === "products") query = query.eq("entry_type", "product_credit");

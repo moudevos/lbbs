@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, ClipboardList, Package, Plus, PlusCircle, Save, Trash2 } from "lucide-react";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { BranchOption } from "@/lib/reservations/types";
+import { CsvToolsPanel } from "@/components/import-export/csv-tools-panel";
 
 type Product = Record<string, any>;
 
@@ -138,6 +139,8 @@ export function ProductsManager() {
           </div>
         </div>
       ) : null}
+
+      {canMutate ? <CsvToolsPanel title="Productos XLSX" templateUrl="/api/control/products/template" importUrl="/api/control/products/import" format="xlsx" onImported={load} /> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {products.map((product) => {

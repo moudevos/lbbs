@@ -11,6 +11,7 @@ import { NavigationLoadingProvider, useNavigationLoading } from "@/components/na
 import { TopProgressBar } from "@/components/navigation/top-progress-bar";
 import { ModuleRouteSkeleton } from "@/components/navigation/module-route-skeleton";
 import { RealtimeNotificationCenter } from "@/components/realtime/realtime-notification-center";
+import { ControlThemeProvider } from "./control-theme-provider";
 import { ControlNavLink } from "./control-nav-link";
 import { BranchScopeSelector } from "./branch-scope-selector";
 
@@ -98,6 +99,7 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
 
   return (
     <div className="h-screen overflow-hidden bg-[var(--bg-main)]">
+      <ControlThemeProvider />
       <TopProgressBar />
       <div className="flex h-[calc(100%-2px)]">
         <aside className="hidden h-full w-72 shrink-0 overflow-y-auto border-r border-[var(--border-soft)] bg-black/70 p-4 lg:block">

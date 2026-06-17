@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { writeAuditLog } from "@/lib/audit";
+import { syncRewardAccount } from "@/lib/rewards/server";
 
 function money(value: unknown) {
   return Math.round(Number(value ?? 0) * 100) / 100;
@@ -13,7 +14,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
   const { data: order, error: orderError } = await context.admin
     .from("service_orders")
-    .select("id,status,branch_id,subtotal,total_paid,discount_amount")
+    .select("id,status,branch_id,subtotal,total_paid,discount_amount,customer_id,reward_redemption_id")
     .eq("id", params.id)
     .maybeSingle();
   if (orderError || !order) return NextResponse.json({ error: orderError?.message ?? "Atención no encontrada" }, { status: 404 });
@@ -24,7 +25,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
   const { data: item, error: itemError } = await context.admin
     .from("service_order_items")
-    .select("id,item_type,product_id,quantity,subtotal")
+    .select("id,item_type,product_id,quantity,subtotal,discount_amount")
     .eq("id", params.itemId)
     .eq("service_order_id", params.id)
     .maybeSingle();
@@ -64,10 +65,46 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
   const { error } = await context.admin.from("service_order_items").delete().eq("id", params.itemId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const nextSubtotal = Math.max(money(order.subtotal) - money(item.subtotal), 0);
-  const nextTotal = Math.max(nextSubtotal - money(order.discount_amount), 0);
+  let nextSubtotal = Math.max(money(order.subtotal) - money(item.subtotal), 0);
+  let nextDiscount = money(order.discount_amount);
+  let clearRewardRedemption = false;
+  if (item.item_type === "reward_discount") {
+    nextSubtotal = money(order.subtotal);
+    nextDiscount = Math.max(nextDiscount - money(item.discount_amount ?? Math.abs(Number(item.subtotal ?? 0))), 0);
+    clearRewardRedemption = true;
+    if (order.reward_redemption_id) {
+      await context.admin
+        .from("customer_reward_redemptions")
+        .update({ status: "cancelled" })
+        .eq("id", order.reward_redemption_id)
+        .eq("service_order_id", params.id);
+      await context.admin.from("customer_reward_ledger").insert({
+        customer_id: order.customer_id,
+        event_type: "reward_cancelled",
+        service_order_id: params.id,
+        branch_id: order.branch_id,
+        points_delta: 0,
+        reward_delta: 1,
+        description: "Reward liberado antes del pago"
+      });
+      const { data: account } = await context.admin
+        .from("customer_reward_accounts")
+        .select("redeemed_rewards")
+        .eq("customer_id", order.customer_id)
+        .maybeSingle();
+      await context.admin
+        .from("customer_reward_accounts")
+        .update({ redeemed_rewards: Math.max(Number(account?.redeemed_rewards ?? 0) - 1, 0), updated_at: new Date().toISOString() })
+        .eq("customer_id", order.customer_id);
+      await syncRewardAccount(context.admin, order.customer_id);
+    }
+  }
+  const nextTotal = Math.max(nextSubtotal - nextDiscount, 0);
   const nextBalance = Math.max(nextTotal - money(order.total_paid), 0);
-  await context.admin.from("service_orders").update({ subtotal: nextSubtotal, total: nextTotal, balance: nextBalance }).eq("id", params.id);
+  await context.admin
+    .from("service_orders")
+    .update({ subtotal: nextSubtotal, total: nextTotal, balance: nextBalance, discount_amount: nextDiscount, reward_redemption_id: clearRewardRedemption ? null : order.reward_redemption_id })
+    .eq("id", params.id);
 
   await writeAuditLog(context.admin, {
     actorUserId: context.employee.userId,
@@ -77,7 +114,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     tableName: "service_order_items",
     recordId: params.itemId,
     previousData: item as Record<string, unknown>,
-    newData: { deleted: true }
+    newData: { deleted: true, reward_released: clearRewardRedemption }
   });
 
   return NextResponse.json({ ok: true, subtotal: nextSubtotal, total: nextTotal, balance: nextBalance });

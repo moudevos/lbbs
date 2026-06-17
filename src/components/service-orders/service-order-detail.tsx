@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BadgeCheck, Plus, Trash2 } from "lucide-react";
+import { BadgeCheck, Loader2, Plus, Trash2 } from "lucide-react";
 import { PaymentSplitEditor } from "./payment-split-editor";
 import { PaymentMethodBadge } from "./payment-method-badge";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
@@ -19,6 +19,8 @@ function first<T>(value: T | T[] | null | undefined): T | null {
 
 export function ServiceOrderDetail({ id }: { id: string }) {
   const searchParams = useSearchParams();
+  const paymentRef = useRef<HTMLElement | null>(null);
+  const [highlightPayment, setHighlightPayment] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [barbers, setBarbers] = useState<BarberOption[]>([]);
@@ -32,6 +34,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   const [soldByEmployeeId, setSoldByEmployeeId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("efectivo");
   const [splits, setSplits] = useState<PaymentSplit[]>([]);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   async function load() {
     const response = await fetch(`/api/control/service-orders/${id}`);
@@ -58,6 +61,14 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    if (searchParams.get("focus") !== "payment" || !order) return;
+    paymentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightPayment(true);
+    const timer = window.setTimeout(() => setHighlightPayment(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [order, searchParams]);
+
   const customer = first(order?.customers);
   const branch = first(order?.branches);
   const barber = first(order?.employees);
@@ -72,94 +83,136 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   const selectedProductCredit = Boolean(selectedProduct?.counts_for_seller_credit);
 
   async function addExtra() {
-    const response = await fetch(`/api/control/service-orders/${id}/items`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemType: "manual_extra", name: extraName, amount: Number(extraAmount) })
-    });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo agregar adicional", data.error ?? "Revisa el monto.");
-    setExtraName("");
-    setExtraAmount("");
-    await load();
+    if (busyAction) return;
+    setBusyAction("extra");
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemType: "manual_extra", name: extraName, amount: Number(extraAmount) })
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo agregar adicional", data.error ?? "Revisa el monto.");
+      setExtraName("");
+      setExtraAmount("");
+      await load();
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function addService() {
-    const response = await fetch(`/api/control/service-orders/${id}/items`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemType: "service", serviceId })
-    });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo agregar servicio", data.error ?? "Selecciona un servicio.");
-    setServiceId("");
-    await load();
+    if (busyAction) return;
+    setBusyAction("service");
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemType: "service", serviceId })
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo agregar servicio", data.error ?? "Selecciona un servicio.");
+      setServiceId("");
+      await load();
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function addProduct() {
-    const response = await fetch(`/api/control/service-orders/${id}/items`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        itemType: "product",
-        productId,
-        quantity: Number(quantity),
-        unitPrice: selectedProduct?.sale_price,
-        sellerType,
-        soldByEmployeeId: sellerType === "barber" ? soldByEmployeeId : null
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo agregar producto", data.error ?? "Revisa stock.");
-    setProductId("");
-    setQuantity("1");
-    setSellerType("reception");
-    setSoldByEmployeeId("");
-    await load();
+    if (busyAction) return;
+    setBusyAction("product");
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemType: "product",
+          productId,
+          quantity: Number(quantity),
+          unitPrice: selectedProduct?.sale_price,
+          sellerType,
+          soldByEmployeeId: sellerType === "barber" ? soldByEmployeeId : null
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo agregar producto", data.error ?? "Revisa stock.");
+      setProductId("");
+      setQuantity("1");
+      setSellerType("reception");
+      setSoldByEmployeeId("");
+      await load();
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function deleteItem(itemId: string) {
+    if (busyAction) return;
     if (!(await showConfirm("Eliminar item", "Solo se permite antes de pagar la atención."))) return;
-    const response = await fetch(`/api/control/service-orders/${id}/items/${itemId}`, { method: "DELETE" });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo eliminar", data.error ?? "Intenta nuevamente.");
-    await load();
+    setBusyAction(`delete-${itemId}`);
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/items/${itemId}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo eliminar", data.error ?? "Intenta nuevamente.");
+      await load();
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function pay() {
-    const total = Number(order?.total ?? 0);
-    const body = paymentMethod === "mixto"
-      ? { method: paymentMethod, splits }
-      : { method: paymentMethod, splits: [{ method: paymentMethod, amount: total, reference: "" }] };
-    const response = await fetch(`/api/control/service-orders/${id}/pay`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo registrar pago", data.error ?? "Revisa los montos.");
-    await load();
-    await showSuccess("Atención pagada");
+    if (busyAction) return;
+    setBusyAction("pay");
+    try {
+      const total = Number(order?.total ?? 0);
+      const body = paymentMethod === "mixto"
+        ? { method: paymentMethod, splits }
+        : { method: paymentMethod, splits: [{ method: paymentMethod, amount: total, reference: "" }] };
+      const response = await fetch(`/api/control/service-orders/${id}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo registrar pago", data.error ?? "Revisa los montos.");
+      await load();
+      await showSuccess("Atención pagada");
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function voidOrder() {
+    if (busyAction) return;
     if (!(await showConfirm("Anular atención", "La atención quedará anulada y auditada."))) return;
-    const response = await fetch(`/api/control/service-orders/${id}/void`, { method: "POST" });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo anular", data.error ?? "Intenta nuevamente.");
-    await load();
+    setBusyAction("void");
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/void`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo anular", data.error ?? "Intenta nuevamente.");
+      await load();
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function redeem(rewardType: "classic_cut" | "voucher_30") {
-    const response = await fetch(`/api/control/service-orders/${id}/redeem`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rewardType })
-    });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo canjear", data.error ?? "Sin recompensa disponible.");
-    await load();
-    await showSuccess("Recompensa aplicada", `Descuento: S/ ${Number(data.discount ?? 0).toFixed(2)}`);
+    if (busyAction) return;
+    setBusyAction(rewardType);
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/redeem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rewardType })
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo canjear", data.error ?? "Sin recompensa disponible.");
+      await load();
+      await showSuccess("Recompensa aplicada", `Descuento: S/ ${Number(data.discount ?? 0).toFixed(2)}`);
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   if (!order) {
@@ -185,6 +238,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
         <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
           <h2 className="font-semibold">Items</h2>
           <div className="mt-3 grid gap-2">
+            {items.length === 0 ? <p className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">Esta atención no tiene items registrados. Agrega al menos uno antes de cobrar.</p> : null}
             {items.map((item: any) => (
               <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border-soft)] bg-black/25 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -199,7 +253,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <strong>S/ {Number(item.subtotal ?? item.amount ?? 0).toFixed(2)}</strong>
-                  {!locked ? <button className="rounded-lg border border-[var(--border-soft)] p-2 text-red-200" onClick={() => deleteItem(item.id)}><Trash2 size={15} /></button> : null}
+                  {!locked ? <button className="rounded-lg border border-[var(--border-soft)] p-2 text-red-200 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={() => deleteItem(item.id)}>{busyAction === `delete-${item.id}` ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}</button> : null}
                 </div>
               </div>
             ))}
@@ -215,7 +269,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
                   <option value="">Seleccionar servicio</option>
                   {services.map((item) => <option key={item.id} value={item.id}>{item.name} - {item.price == null ? "Consultar" : `S/ ${Number(item.price).toFixed(2)}`}</option>)}
                 </select>
-                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={addService}><Plus size={16} /> Agregar servicio</button>
+                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={addService}>{busyAction === "service" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Agregar servicio</button>
               </div>
             </div>
             <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
@@ -223,7 +277,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
               <div className="mt-3 grid gap-2">
                 <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Nombre" value={extraName} onChange={(event) => setExtraName(event.target.value)} />
                 <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="number" placeholder="Monto" value={extraAmount} onChange={(event) => setExtraAmount(event.target.value)} />
-                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={addExtra}><Plus size={16} /> Agregar</button>
+                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={addExtra}>{busyAction === "extra" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Agregar</button>
               </div>
             </div>
             <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
@@ -250,14 +304,14 @@ export function ServiceOrderDetail({ id }: { id: string }) {
                   </select>
                 ) : null}
                 {selectedProductCredit ? <p className="rounded-lg border border-[var(--gold-soft)] px-3 py-2 text-xs text-[var(--gold-soft)]">Este producto suma S/ {Number(selectedProduct?.seller_credit_amount ?? 2).toFixed(2)} por unidad al vendedor.</p> : null}
-                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={addProduct}><Plus size={16} /> Agregar</button>
+                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={addProduct}>{busyAction === "product" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Agregar</button>
               </div>
             </div>
           </div>
         ) : null}
       </div>
 
-      <aside className={`grid h-max gap-4 rounded-lg border bg-black/35 p-4 ${searchParams.get("focus") === "payment" ? "border-[var(--gold)] shadow-[0_0_0_1px_rgba(212,175,55,0.35)]" : "border-[var(--border-soft)]"}`}>
+      <aside ref={paymentRef} className={`grid h-max gap-4 rounded-lg border bg-black/35 p-4 transition-shadow ${searchParams.get("focus") === "payment" || highlightPayment ? "border-[var(--gold)] shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_0_40px_-20px_rgba(212,175,55,0.9)]" : "border-[var(--border-soft)]"}`}>
         <div>
           <h2 className="font-semibold">Resumen</h2>
           <div className="mt-3 grid gap-2 text-sm">
@@ -286,17 +340,25 @@ export function ServiceOrderDetail({ id }: { id: string }) {
               <p className="text-sm text-[var(--text-muted)]">Recompensas disponibles: {rewards?.available_rewards ?? 0}</p>
               {Number(rewards?.available_rewards ?? 0) > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs" onClick={() => redeem("classic_cut")}>Corte gratis</button>
-                  <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs" onClick={() => redeem("voucher_30")}>Vale S/30</button>
+                  <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs disabled:opacity-60" disabled={Boolean(busyAction)} onClick={() => redeem("classic_cut")}>{busyAction === "classic_cut" ? <Loader2 size={14} className="animate-spin" /> : null}Corte gratis</button>
+                  <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs disabled:opacity-60" disabled={Boolean(busyAction)} onClick={() => redeem("voucher_30")}>{busyAction === "voucher_30" ? <Loader2 size={14} className="animate-spin" /> : null}Vale S/30</button>
                 </div>
               ) : null}
             </div>
             <PaymentSplitEditor total={Number(order.total ?? 0)} method={paymentMethod} splits={splits} onMethodChange={setPaymentMethod} onSplitsChange={setSplits} />
-            <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-3 font-semibold text-black" onClick={pay}><BadgeCheck size={16} /> Registrar pago</button>
+            <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-3 font-semibold text-black disabled:opacity-60" disabled={Boolean(busyAction) || items.length === 0} onClick={pay}>{busyAction === "pay" ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />} Registrar pago</button>
+            <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={load}>Guardar cambios</button>
           </>
         ) : null}
 
-        {order.status !== "anulado" ? <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-red-200" onClick={voidOrder}>Anular atención</button> : null}
+        {order.status === "pagado" ? (
+          <div className="grid gap-2">
+            <Link className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-center" href={`/app/control/atenciones/${id}/ticket`}>Ver ticket</Link>
+            <Link className="rounded-lg bg-[var(--gold)] px-4 py-2 text-center font-semibold text-black" href={`/app/control/atenciones/${id}/ticket`}>Imprimir / WhatsApp</Link>
+          </div>
+        ) : null}
+
+        {order.status !== "anulado" ? <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-4 py-2 text-red-200 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={voidOrder}>{busyAction === "void" ? <Loader2 size={16} className="animate-spin" /> : null}Anular atención</button> : null}
       </aside>
     </section>
   );

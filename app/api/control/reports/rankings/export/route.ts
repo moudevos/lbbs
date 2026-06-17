@@ -1,12 +1,15 @@
 import { GET as rankingsGet } from "../../../rankings/route";
-import { buildCsv, csvResponse } from "@/lib/reports/csv";
+import { xlsxResponse } from "@/lib/excel/export-xlsx";
 
 export async function GET(request: Request) {
   const response = await rankingsGet(request as any);
   if (response.status >= 400) return response;
   const data = await response.json();
-  return csvResponse("reporte-rankings.csv", buildCsv(
-    ["empleado", "servicios", "produccion_neta", "venta_barber_product", "creditos_productos"],
-    (data.rankings ?? []).map((row: any) => [row.name, row.servicesCount, row.netProduction, row.barberProductSales, row.productCredits])
-  ));
+  return xlsxResponse("reporte-rankings.xlsx", "rankings", (data.rankings ?? []).map((row: any) => ({
+    empleado: row.name,
+    servicios: row.servicesCount,
+    produccion_neta: row.netProduction,
+    venta_barber_product: row.barberProductSales,
+    creditos_productos: row.productCredits
+  })));
 }

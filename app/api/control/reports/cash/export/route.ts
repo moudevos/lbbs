@@ -1,5 +1,5 @@
 import { GET as summaryGet } from "../../../cash/summary/route";
-import { buildCsv, csvResponse } from "@/lib/reports/csv";
+import { xlsxResponse } from "@/lib/excel/export-xlsx";
 
 export async function GET(request: Request) {
   const response = await summaryGet(request as any);
@@ -17,5 +17,5 @@ export async function GET(request: Request) {
     ["productos_barberia", data.barberProductTotal],
     ["creditos_vendedores", data.sellerCredits]
   ];
-  return csvResponse("reporte-caja.csv", buildCsv(["metrica", "valor"], rows));
+  return xlsxResponse("reporte-caja.xlsx", "caja", rows.map(([metrica, valor]) => ({ metrica, valor })));
 }

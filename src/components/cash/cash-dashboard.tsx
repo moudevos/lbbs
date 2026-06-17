@@ -60,7 +60,7 @@ export function CashDashboard() {
             <option value="tarjeta">tarjeta</option>
             <option value="transferencia">transferencia</option>
           </select>
-          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href={`/api/control/reports/cash/export?date=${date}&branch_id=${branchId}`}>Exportar CSV</a>
+          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href={`/api/control/reports/cash/export?date=${date}&branch_id=${branchId}`}>Exportar XLSX</a>
         </div>
       </div>
 

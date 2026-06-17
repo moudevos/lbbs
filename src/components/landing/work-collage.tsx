@@ -66,6 +66,16 @@ const mobileHeights = [
   "min-h-[300px]"
 ];
 
+const prefetchedImages = new Set<string>();
+
+function prefetchWorkImage(src: string) {
+  if (prefetchedImages.has(src) || typeof window === "undefined") return;
+  prefetchedImages.add(src);
+  const image = new window.Image();
+  image.decoding = "async";
+  image.src = src;
+}
+
 export function WorkCollage() {
   const [selected, setSelected] = useState<WorkItem | null>(null);
 
@@ -81,14 +91,17 @@ export function WorkCollage() {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-6 lg:h-[760px] lg:grid-cols-12 lg:grid-rows-6">
+        <div className="-mx-6 flex snap-x gap-4 overflow-x-auto px-6 pb-3 md:mx-0 md:grid md:snap-none md:grid-cols-6 md:overflow-visible md:px-0 md:pb-0 lg:h-[760px] lg:grid-cols-12 lg:grid-rows-6">
           {workItems.map((item, index) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setSelected(item)}
+              onMouseEnter={() => prefetchWorkImage(item.image)}
+              onFocus={() => prefetchWorkImage(item.image)}
+              onTouchStart={() => prefetchWorkImage(item.image)}
               aria-label={`Ver ${item.title}, por ${item.barber}`}
-              className={`group relative overflow-hidden rounded-[1.4rem] bg-[#111] text-left transition duration-300 hover:z-10 lg:min-h-0 ${mobileHeights[index]} ${item.className}`}
+              className={`group relative min-w-[82vw] snap-start overflow-hidden rounded-[1.4rem] bg-[#111] text-left transition duration-300 hover:z-10 md:min-w-0 lg:min-h-0 ${mobileHeights[index]} ${item.className}`}
             >
               {/* Fondo de respaldo si la imagen no existe */}
               <span
@@ -97,8 +110,10 @@ export function WorkCollage() {
               />
               <Image
                 src={item.image}
-                alt={item.title}
+                alt={`${item.title} en La Bajadita Barber Studio, barbería en Iquitos`}
                 fill
+                loading="lazy"
+                quality={72}
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw"
                 className="object-cover transition duration-500 group-hover:scale-105"
               />

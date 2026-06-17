@@ -1,6 +1,6 @@
 import { requireEmployee } from "@/lib/control/api";
 import { resolveBranchScope } from "@/lib/branch-scope/branch-scope";
-import { buildCsv, csvResponse } from "@/lib/reports/csv";
+import { xlsxResponse } from "@/lib/excel/export-xlsx";
 
 export async function GET(request: Request) {
   const context = await requireEmployee();
@@ -15,10 +15,10 @@ export async function GET(request: Request) {
   }
   const { data, error } = await query;
   if (error) return new Response(error.message, { status: 500 });
-  return csvResponse("clientes.csv", buildCsv(["cliente", "celular", "sede", "total_atenciones", "rewards_disponibles", "ultima_atencion"], (data ?? []).map((row: any) => {
+  return xlsxResponse("clientes.xlsx", "clientes", (data ?? []).map((row: any) => {
     const stats = Array.isArray(row.customer_visit_stats) ? row.customer_visit_stats[0] : row.customer_visit_stats;
     const rewards = Array.isArray(row.customer_reward_accounts) ? row.customer_reward_accounts[0] : row.customer_reward_accounts;
     const branch = Array.isArray(row.branches) ? row.branches[0] : row.branches;
-    return [row.full_name, row.phone, branch?.name, stats?.total_visits ?? 0, rewards?.available_rewards ?? 0, stats?.last_visit_at ?? ""];
-  })));
+    return { cliente: row.full_name, celular: row.phone, sede: branch?.name, total_atenciones: stats?.total_visits ?? 0, rewards_disponibles: rewards?.available_rewards ?? 0, ultima_atencion: stats?.last_visit_at ?? "" };
+  }));
 }

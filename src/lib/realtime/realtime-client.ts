@@ -8,6 +8,8 @@ import { eventTitle } from "./realtime-events";
 type SubscribeInput = {
   branchId?: string | null;
   onEvent: (notification: RealtimeNotification) => void;
+  onStatus?: (status: "connecting" | "synced" | "error") => void;
+  onError?: (message: string) => void;
 };
 
 function channelName(branchId?: string | null) {
@@ -30,10 +32,11 @@ function notify(type: RealtimeNotification["type"], message: string, href?: stri
   };
 }
 
-export function subscribeToOperationalRealtime({ branchId, onEvent }: SubscribeInput) {
+export function subscribeToOperationalRealtime({ branchId, onEvent, onStatus, onError }: SubscribeInput) {
   const supabase = createClient();
   const channel: RealtimeChannel = supabase.channel(channelName(branchId));
   const filter = branchFilter(branchId);
+  onStatus?.("connecting");
 
   channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "reservations", filter }, (payload) => {
     const row = payload.new as any;
@@ -68,7 +71,13 @@ export function subscribeToOperationalRealtime({ branchId, onEvent }: SubscribeI
   });
 
   channel.subscribe((status) => {
-    if (status === "CHANNEL_ERROR") onEvent(notify("sync_error", "No se pudo mantener la sincronizacion realtime."));
+    if (status === "SUBSCRIBED") onStatus?.("synced");
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+      const message = "No se pudo mantener la sincronizacion realtime.";
+      onStatus?.("error");
+      onError?.(message);
+      onEvent(notify("sync_error", message));
+    }
   });
 
   return () => {

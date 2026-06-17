@@ -17,6 +17,96 @@
   --whatsapp: #4ade80;
 }
 
+.landing-public {
+  --landing-bg: #050A0D;
+  --landing-panel: #162020;
+  --landing-panel-soft: #333F3F;
+  --landing-text: #E5E7EB;
+  --landing-gold: #EA9D4D;
+  --landing-gold-soft: #F0C646;
+  --landing-border: rgba(240, 198, 70, 0.28);
+  --bg-main: var(--landing-bg);
+  --bg-panel: var(--landing-panel);
+  --gold: var(--landing-gold);
+  --gold-bright: var(--landing-gold-soft);
+  --gold-soft: var(--landing-gold-soft);
+  --gold-deep: #b86d27;
+  --text-main: var(--landing-text);
+  --text-muted: #aeb8b8;
+  --text-faint: #7d8989;
+  --border-soft: var(--landing-border);
+  --border-strong: rgba(240, 198, 70, 0.55);
+  background: var(--landing-bg);
+  color: var(--landing-text);
+}
+
+.landing-primary-button {
+  border-radius: 9999px;
+  background: var(--landing-gold);
+  color: #050A0D;
+  font-weight: 700;
+  transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  box-shadow: 0 18px 42px -22px rgba(234, 157, 77, 0.75);
+}
+
+.landing-primary-button:hover {
+  background: var(--landing-gold-soft);
+  transform: translateY(-1px);
+}
+
+.landing-secondary-button {
+  border-radius: 9999px;
+  border: 1px solid var(--landing-gold);
+  color: var(--landing-gold);
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.landing-secondary-button:hover {
+  border-color: var(--landing-gold-soft);
+  background: rgba(240, 198, 70, 0.08);
+  color: var(--landing-gold-soft);
+}
+
+.landing-hero-image {
+  object-position: var(--desktop-object-position, center);
+}
+
+.landing-public {
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 767px) {
+  .landing-hero-image {
+    object-position: var(--mobile-object-position, center);
+  }
+}
+
+[data-control-theme="black-white"] {
+  --bg-main: #050505;
+  --bg-panel: #111111;
+  --gold: #f5f5f5;
+  --gold-bright: #ffffff;
+  --gold-soft: #e5e7eb;
+  --gold-deep: #b8b8b8;
+  --text-main: #f7f7f7;
+  --text-muted: #b7b7b7;
+  --border-soft: rgba(255, 255, 255, 0.18);
+  --border-strong: rgba(255, 255, 255, 0.48);
+}
+
+[data-control-theme="charcoal-soft-gold"] {
+  --bg-main: #10100f;
+  --bg-panel: #1b1a17;
+  --gold: #c8a85a;
+  --gold-bright: #e7cf8a;
+  --gold-soft: #d9c17c;
+  --gold-deep: #9c7b36;
+  --text-main: #f1eee4;
+  --text-muted: #b8b1a2;
+  --border-soft: rgba(200, 168, 90, 0.2);
+  --border-strong: rgba(200, 168, 90, 0.52);
+}
+
 html, body {
   min-height: 100%;
   background:

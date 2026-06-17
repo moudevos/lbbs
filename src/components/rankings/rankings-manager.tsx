@@ -40,7 +40,7 @@ export function RankingsManager() {
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
           <button className="rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" onClick={load}>{loading ? "Cargando..." : "Aplicar"}</button>
-          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href={`/api/control/reports/rankings/export?from=${from}&to=${to}&branch_id=all`}>Exportar CSV</a>
+          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href={`/api/control/reports/rankings/export?from=${from}&to=${to}&branch_id=all`}>Exportar XLSX</a>
         </div>
       </div>
 

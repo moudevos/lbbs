@@ -52,6 +52,13 @@ export function SettingsManager() {
           <Input label="Duracion servicio personalizado" type="number" value={settings.customServiceDurationMinutes ?? 60} onChange={(v) => setSettings({ ...settings, customServiceDurationMinutes: Number(v) })} />
           <Input label="Telefonos" value={(settings.phones ?? []).join(", ")} onChange={(v) => setSettings({ ...settings, phones: v.split(",").map((x) => x.trim()).filter(Boolean) })} />
           <Input label="Redes sociales" value={(settings.socialLinks ?? []).join(", ")} onChange={(v) => setSettings({ ...settings, socialLinks: v.split(",").map((x) => x.trim()).filter(Boolean) })} />
+          <label className="text-sm text-[var(--text-muted)]">Tema visual
+            <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={settings.visualTheme ?? "black-gold"} onChange={(e) => setSettings({ ...settings, visualTheme: e.target.value })}>
+              <option value="black-gold">Negro/Oro</option>
+              <option value="black-white">Negro/Blanco</option>
+              <option value="charcoal-soft-gold">Carbon/Oro suave</option>
+            </select>
+          </label>
         </div>
         <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" onClick={saveSettings}><Save size={16} /> Guardar</button>
       </div>

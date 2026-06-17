@@ -13,6 +13,7 @@ export async function GET() {
     settings: data?.value ?? {
       businessName: "La Bajadita Barber Shop",
       customServiceDurationMinutes: 60,
+      visualTheme: "black-gold",
       phones: [],
       socialLinks: [],
       landingPlaceholders: []

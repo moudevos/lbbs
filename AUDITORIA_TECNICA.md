@@ -1,5 +1,36 @@
 # Auditoria tecnica - La Bajadita Barber Shop
 
+## Actualizacion 2026-06-17 - XLSX definitivo y pago sin modal
+
+### Cambios aplicados
+
+- Se instalo una sola libreria Excel: `xlsx`.
+- Se crearon helpers:
+  - `src/lib/excel/create-workbook.ts`
+  - `src/lib/excel/parse-xlsx.ts`
+  - `src/lib/excel/export-xlsx.ts`
+- Plantilla e importacion de servicios ahora usan `.xlsx`.
+- Plantilla e importacion de empleados/barberos ahora usan `.xlsx`.
+- Se agrego plantilla e importacion de productos en `.xlsx`.
+- Reportes de caja, liquidaciones, produccion, ventas, rankings y clientes exportan `.xlsx`.
+- Google Contacts se mantiene como CSV y es el unico flujo CSV de importacion.
+- La lista de atenciones ya no abre modal pequeno de pago: cualquier boton `Pagar` navega a `/app/control/atenciones/[id]?focus=payment`.
+- Caja ya navega a la vista completa con `focus=payment`.
+- La vista completa de atencion hace scroll y resalta la seccion de pago cuando recibe `focus=payment`.
+- La validacion de pago consulta `service_order_items` reales en servidor y acepta `service`, `custom_service`, `product`, `snack` y `manual_extra`.
+- `reward_discount` y `discount` no cuentan como item unico valido para pagar.
+
+### Causa exacta del error de items
+
+- La validacion previa de pago era demasiado estrecha y no contemplaba todos los tipos reales de items operativos, especialmente `snack`, ni usaba un mensaje especifico para pago.
+- Ademas, algunos botones `Pagar` abrian un modal aislado que no daba contexto completo de items ni permitia corregir la atencion antes de cobrar.
+
+### Validacion
+
+- `npm run lint`: OK.
+- `npm run build`: OK.
+- `npm run smoke:supabase`: falla por datos de entorno. Error: `No active admin employee found with a valid branch and must_change_password=false`.
+
 ## Actualizacion 2026-06-17 - Realtime, rewards, imports y exports
 
 ### Cambios aplicados

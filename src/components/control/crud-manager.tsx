@@ -1,6 +1,7 @@
 "use client";
 
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { Plus, RotateCcw, Save, Trash2 } from "lucide-react";
@@ -9,8 +10,8 @@ import { ButtonSpinner, FormLoadingOverlay, TableSkeleton } from "@/components/u
 import { StatusBadge } from "@/components/ui/status-badge";
 import { RoleBadge } from "@/components/ui/role-badge";
 import { ScheduleEditor } from "@/components/ui/schedule-editor";
-import { prepareImageForUpload } from "@/lib/storage/upload-image";
 import { CsvToolsPanel } from "@/components/import-export/csv-tools-panel";
+import { AvatarCropUploader } from "@/components/employees/avatar-crop-uploader";
 
 type Module = "branches" | "services" | "customers" | "employees";
 type Row = Record<string, any>;
@@ -148,9 +149,8 @@ export function CrudManager({ module }: { module: Module }) {
         </div>
       </div>
       {temporaryPassword ? <div className="rounded-lg border border-[var(--border-soft)] bg-[rgba(212,175,55,0.08)] p-4 text-sm">Password temporal visible una sola vez: <strong>{temporaryPassword}</strong><br />El empleado debe validar su correo y luego cambiar este password al ingresar.</div> : null}
-      {module === "customers" ? <CsvToolsPanel title="Importar clientes" importUrl="/api/control/customers/import" exportUrl="/api/control/reports/customers/export" onImported={load} /> : null}
-      {module === "services" ? <CsvToolsPanel title="Servicios CSV" templateUrl="/api/control/services/template" importUrl="/api/control/services/import" onImported={load} /> : null}
-      {module === "employees" ? <CsvToolsPanel title="Empleados CSV" templateUrl="/api/control/employees/template" importUrl="/api/control/employees/import" onImported={load} /> : null}
+      {module === "customers" ? <CsvToolsPanel title="Importar clientes Google Contacts CSV" importUrl="/api/control/customers/import" exportUrl="/api/control/reports/customers/export" exportFormat="xlsx" onImported={load} /> : null}
+      {module === "services" ? <CsvToolsPanel title="Servicios XLSX" templateUrl="/api/control/services/template" importUrl="/api/control/services/import" format="xlsx" onImported={load} /> : null}
       {editing ? <Editor module={module} row={editing} branches={branches} saving={saving} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} /> : null}
       {loading ? <TableSkeleton /> : null}
       {!loading && rows.length === 0 ? <EmptyState /> : null}
@@ -164,7 +164,7 @@ export function CrudManager({ module }: { module: Module }) {
                   {row.role ? <RoleBadge role={row.role} /> : null}
                   <StatusBadge active={row.is_active} />
                 </div>
-                {module === "employees" && row.profile_photo_url ? <Image src={row.profile_photo_url} alt="" width={56} height={56} className="mb-2 h-14 w-14 rounded-full object-cover" /> : null}
+                {module === "employees" && row.profile_photo_url ? <img src={row.profile_photo_url} alt="" className="mb-2 h-14 w-14 rounded-full object-cover" /> : null}
                 <h2 className="mt-2 text-base font-semibold">{row.name ?? row.full_name ?? row.nickname ?? `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim()}</h2>
                 <p className="text-sm text-[var(--text-muted)]">{describeRow(module, row)}</p>
                 {module === "customers" ? <CustomerStats row={row} /> : null}
@@ -198,7 +198,7 @@ function Editor({ module, row, branches, saving, onChange, onSave, onCancel }: {
         {module === "branches" ? <><Input label="Nombre" value={row.name} onChange={(v) => onChange({ ...row, name: v })} /><Input label="Celular" value={row.phone} onChange={(v) => onChange({ ...row, phone: v })} /><Input label="Direccion" value={row.address} onChange={(v) => onChange({ ...row, address: v })} /><div className="md:col-span-2"><p className="mb-2 text-sm text-[var(--text-muted)]">Horario semanal de sede</p><ScheduleEditor mode="branch" value={row.schedules ?? defaultBranchSchedule()} onChange={(value) => onChange({ ...row, schedules: value })} /></div></> : null}
         {module === "services" ? <><Input label="Nombre" value={row.name} onChange={(v) => onChange({ ...row, name: v })} /><Input label="Descripcion" value={row.description} onChange={(v) => onChange({ ...row, description: v })} /><Input label="Duracion min" type="number" value={row.durationMinutes} onChange={(v) => onChange({ ...row, durationMinutes: Number(v) })} /><Input label="Precio" type="number" step="0.01" value={row.price} onChange={(v) => onChange({ ...row, price: v })} /><BranchSelect value={row.branchId} branches={branches} allowGlobal onChange={(v) => onChange({ ...row, branchId: v })} /></> : null}
         {module === "customers" ? <><Input label="Nombre" value={row.fullName} onChange={(v) => onChange({ ...row, fullName: v })} /><Input label="Celular" value={row.phone} onChange={(v) => onChange({ ...row, phone: v })} /><Input label="Notas" value={row.notes} onChange={(v) => onChange({ ...row, notes: v })} /><BranchSelect value={row.branchId} branches={branches} onChange={(v) => onChange({ ...row, branchId: v })} /></> : null}
-        {module === "employees" ? <><Input label="Nombre" value={row.firstName} onChange={(v) => onChange({ ...row, firstName: v })} /><Input label="Apellido" value={row.lastName} onChange={(v) => onChange({ ...row, lastName: v })} /><Input label="Apodo visible" value={row.nickname} onChange={(v) => onChange({ ...row, nickname: v })} /><Input label="Especialidad" value={row.specialty} onChange={(v) => onChange({ ...row, specialty: v })} /><Input label="% produccion" type="number" value={row.productionPercentage} onChange={(v) => onChange({ ...row, productionPercentage: Number(v) })} /><label className="flex items-center gap-2 text-sm text-[var(--text-muted)]"><input type="checkbox" checked={Boolean(row.canPerformServices || row.role === "barbero")} disabled={row.role === "barbero"} onChange={(e) => onChange({ ...row, canPerformServices: e.target.checked })} /> Puede realizar servicios</label><Input label="Celular" value={row.phone} onChange={(v) => onChange({ ...row, phone: v })} /><Input label="Email" value={row.email} onChange={(v) => onChange({ ...row, email: v })} /><label className="text-sm text-[var(--text-muted)]">Rol<select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={row.role} onChange={(e) => onChange({ ...row, role: e.target.value, canPerformServices: e.target.value === "barbero" ? true : row.canPerformServices })}><option value="admin">admin</option><option value="recepcion">recepcion</option><option value="barbero">barbero</option></select></label><BranchSelect value={row.branchId} branches={branches} onChange={(v) => onChange({ ...row, branchId: v })} />{row.id ? <AvatarUploader row={row} onUploaded={(url) => onChange({ ...row, profilePhotoUrl: url })} /> : null}{!row.id ? <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]"><input type="checkbox" checked={Boolean(row.createUser)} onChange={(e) => onChange({ ...row, createUser: e.target.checked })} /> Crear usuario Auth</label> : null}</> : null}
+        {module === "employees" ? <><Input label="Nombre" value={row.firstName} onChange={(v) => onChange({ ...row, firstName: v })} /><Input label="Apellido" value={row.lastName} onChange={(v) => onChange({ ...row, lastName: v })} /><Input label="Apodo visible" value={row.nickname} onChange={(v) => onChange({ ...row, nickname: v })} /><Input label="Especialidad" value={row.specialty} onChange={(v) => onChange({ ...row, specialty: v })} /><Input label="% produccion" type="number" value={row.productionPercentage} onChange={(v) => onChange({ ...row, productionPercentage: Number(v) })} /><label className="flex items-center gap-2 text-sm text-[var(--text-muted)]"><input type="checkbox" checked={Boolean(row.canPerformServices || row.role === "barbero")} disabled={row.role === "barbero"} onChange={(e) => onChange({ ...row, canPerformServices: e.target.checked })} /> Puede realizar servicios</label><Input label="Celular" value={row.phone} onChange={(v) => onChange({ ...row, phone: v })} /><Input label="Email" value={row.email} onChange={(v) => onChange({ ...row, email: v })} /><label className="text-sm text-[var(--text-muted)]">Rol<select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={row.role} onChange={(e) => onChange({ ...row, role: e.target.value, canPerformServices: e.target.value === "barbero" ? true : row.canPerformServices })}><option value="admin">admin</option><option value="recepcion">recepcion</option><option value="barbero">barbero</option></select></label><BranchSelect value={row.branchId} branches={branches} onChange={(v) => onChange({ ...row, branchId: v })} />{row.id ? <AvatarCropUploader row={row} onUploaded={(url) => onChange({ ...row, profilePhotoUrl: url })} /> : null}{!row.id ? <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]"><input type="checkbox" checked={Boolean(row.createUser)} onChange={(e) => onChange({ ...row, createUser: e.target.checked })} /> Crear usuario Auth</label> : null}</> : null}
       </div>
       <div className="mt-4 flex gap-2">
         <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" onClick={onSave} disabled={saving}>{saving ? <ButtonSpinner /> : <Save size={16} />} Guardar</button>
@@ -234,47 +234,6 @@ function defaultBranchSchedule() {
     closesAt: "20:00",
     isActive: dayOfWeek !== 0
   }));
-}
-
-function AvatarUploader({ row, onUploaded }: { row: Row; onUploaded: (url: string) => void }) {
-  const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(row.profilePhotoUrl || null);
-  const [progress, setProgress] = useState("");
-
-  async function upload(file: File | null) {
-    if (!file || !row.id) return;
-    try {
-      setUploading(true);
-      setProgress(file.size > 2 * 1024 * 1024 ? "Comprimiendo imagen..." : "Preparando imagen...");
-      const form = new FormData();
-      const prepared = await prepareImageForUpload(file, { maxWidth: 1000, maxHeight: 1000 });
-      setPreview(URL.createObjectURL(prepared));
-      setProgress("Subiendo a Supabase Storage...");
-      form.set("file", prepared);
-      const response = await fetch(`/api/control/employees/${row.id}/avatar`, { method: "POST", body: form });
-      const data = await response.json();
-      if (!response.ok) {
-        await Swal.fire("No se pudo subir foto", data.error ?? "Revisa el archivo.", "error");
-        return;
-      }
-      onUploaded(data.publicUrl);
-      await Swal.fire("Foto actualizada", "La foto se guardo en Supabase Storage.", "success");
-    } catch (error) {
-      await Swal.fire("No se pudo preparar imagen", error instanceof Error ? error.message : "Archivo invalido.", "error");
-    } finally {
-      setUploading(false);
-      setProgress("");
-    }
-  }
-
-  return (
-    <label className="text-sm text-[var(--text-muted)]">
-      Foto de perfil
-      <input className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={(event) => upload(event.target.files?.[0] ?? null)} />
-      {preview ? <Image src={preview} alt="Preview" width={80} height={80} className="mt-3 h-20 w-20 rounded-full object-cover" /> : null}
-      {uploading ? <span className="mt-2 block text-xs text-[var(--gold-soft)]">{progress || "Subiendo..."}</span> : null}
-    </label>
-  );
 }
 
 function CustomerStats({ row }: { row: Row }) {
