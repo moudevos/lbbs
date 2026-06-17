@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PaymentMethodBadge } from "@/components/service-orders/payment-method-badge";
 import type { BarberOption, BranchOption } from "@/lib/reservations/types";
 import { showError } from "@/lib/ui/swal";
@@ -59,16 +60,29 @@ export function CashDashboard() {
             <option value="tarjeta">tarjeta</option>
             <option value="transferencia">transferencia</option>
           </select>
+          <a className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-sm" href={`/api/control/reports/cash/export?date=${date}&branch_id=${branchId}`}>Exportar CSV</a>
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <Metric label="Total vendido" value={`S/ ${Number(data?.totalSold ?? 0).toFixed(2)}`} />
+        <Metric label="Bruto total del dia" value={`S/ ${Number(data?.grossTotal ?? 0).toFixed(2)}`} />
+        <Metric label="Total cobrado" value={`S/ ${Number(data?.totalSold ?? 0).toFixed(2)}`} />
         <Metric label="Atenciones pagadas" value={String(data?.attentionCount ?? 0)} />
         <Metric label="Pendiente de pago" value={`S/ ${Number(data?.pendingTotal ?? 0).toFixed(2)}`} />
-        <Metric label="Servicios realizados" value={String(data?.serviceCount ?? 0)} />
-        <Metric label="Productos vendidos" value={String(data?.productsSold ?? 0)} />
+        <Metric label="Anulado" value={`S/ ${Number(data?.voidedTotal ?? 0).toFixed(2)}`} />
         <Metric label="Servicios anulados" value={String(data?.voidedCount ?? 0)} />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Metric label="Total bruto de servicios" value={`S/ ${Number(data?.serviceGross ?? 0).toFixed(2)}`} />
+        <Metric label="Cantidad de servicios" value={String(data?.serviceCount ?? 0)} />
+        <Metric label="Deducciones de produccion" value={`S/ ${Number(data?.productionDeductions ?? 0).toFixed(2)}`} />
+        <Metric label="Produccion neta servicios" value={`S/ ${Number(data?.serviceProduction ?? 0).toFixed(2)}`} />
+        <Metric label="Total cafeteria/snacks" value={`S/ ${Number(data?.snackTotal ?? 0).toFixed(2)}`} />
+        <Metric label="Cantidad snacks" value={String(data?.snackCount ?? 0)} />
+        <Metric label="Total productos barberia" value={`S/ ${Number(data?.barberProductTotal ?? 0).toFixed(2)}`} />
+        <Metric label="Cantidad productos barberia" value={String(data?.barberProductCount ?? 0)} />
+        <Metric label="Creditos vendedores" value={`S/ ${Number(data?.sellerCredits ?? 0).toFixed(2)}`} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -89,6 +103,37 @@ export function CashDashboard() {
           ))}
         </Panel>
       </div>
+      <Panel title="Atenciones por origen">
+        {(data?.byOrigin ?? []).map((item: any) => (
+          <div key={item.origin} className="flex items-center justify-between rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm">
+            <span>{item.origin}</span>
+            <span>{item.count} atenciones - S/ {Number(item.total).toFixed(2)}</span>
+          </div>
+        ))}
+      </Panel>
+
+      <Panel title="Atenciones pendientes de cobro">
+        <div className="grid gap-2">
+          {(data?.pendingTickets ?? []).map((ticket: any) => (
+            <article key={ticket.id} className="rounded-lg border border-[var(--border-soft)] bg-black/25 p-3 text-sm">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold">{ticket.customers?.full_name ?? "Cliente"}</p>
+                  <p className="text-[var(--text-muted)]">
+                    {ticket.branches?.name ?? "Sede"} - {ticket.employees ? `${ticket.employees.first_name ?? ""} ${ticket.employees.last_name ?? ""}`.trim() : "Sin barbero"} - {ticket.origin}
+                  </p>
+                  <p className="text-[var(--text-muted)]">{(ticket.service_order_items ?? []).map((item: any) => item.name).join(", ")}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <strong className="text-[var(--gold)]">S/ {Number(ticket.total ?? 0).toFixed(2)}</strong>
+                  <Link className="rounded-lg bg-[var(--gold)] px-3 py-2 font-semibold text-black" href={`/app/control/atenciones/${ticket.id}?focus=payment`}>Pagar</Link>
+                </div>
+              </div>
+            </article>
+          ))}
+          {(data?.pendingTickets ?? []).length === 0 ? <p className="text-sm text-[var(--text-muted)]">No hay atenciones pendientes de cobro.</p> : null}
+        </div>
+      </Panel>
 
       <Panel title="Tickets del dia">
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">

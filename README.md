@@ -102,6 +102,9 @@ Ejecutar en Supabase SQL Editor en este orden:
 13. `supabase/sql/013_services_cash_rewards_public_agenda.sql`
 14. `supabase/sql/014_products_attentions_cash.sql`
 15. `supabase/sql/015_branch_product_stock_dashboard.sql`
+16. `supabase/sql/016_barber_production_bonuses.sql`
+17. `supabase/sql/017_landing_team_reviews_liquidations.sql`
+18. `supabase/sql/018_images_reviews_liquidations_kiosk.sql`
 
 ## Rutas
 
@@ -170,3 +173,81 @@ Implementado:
 * Servicios realizados, pagos, caja base, rewards reales y agenda publica en `013_services_cash_rewards_public_agenda.sql`.
 * Productos, stock simple y estructura POS de atenciones en `014_products_attentions_cash.sql`.
 * Stock por sede, movimientos auditables y base de dashboard gerencial en `015_branch_product_stock_dashboard.sql`.
+* Produccion de barberos, bonos y creditos por productos en `016_barber_production_bonuses.sql`.
+* Landing desde BD, perfiles/fotos de barberos, reseñas moderadas y liquidaciones base en `017_landing_team_reviews_liquidations.sql`.
+* Compresion de imagenes, QR de reseñas, snapshots inmutables de liquidaciones y modo local/kiosko en `018_images_reviews_liquidations_kiosk.sql`.
+
+## Storage
+
+Buckets usados:
+
+* `landing-assets`: imagenes publicas de landing.
+* `branch-gallery`: galeria publica de sedes.
+* `work-gallery`: trabajos realizados.
+* `employee-avatars`: fotos de barberos, subidas desde API interna protegida.
+* `service-images`: imagenes de servicios.
+
+Reglas operativas:
+
+* No usar URLs externas para imagenes subidas por usuarios.
+* Subir fotos de barberos desde `/app/control/empleados`.
+* Validar tipo `jpg`, `png` o `webp`.
+* Tamaño maximo actual para avatar: 2MB.
+* No exponer `SUPABASE_SERVICE_ROLE_KEY` en cliente.
+* Si una imagen supera 2MB, se comprime en cliente con canvas antes de subir.
+* Formato preferido de subida: WebP.
+
+## Landing dinamica
+
+La landing consume:
+
+* `GET /api/public/services`
+* `GET /api/public/team`
+* `GET /api/public/reviews`
+
+Las reseñas publicas se envian desde `/cliente/resena` y quedan pendientes hasta aprobacion en `/app/control/resenas`.
+
+El dashboard de reseñas muestra QR descargable y link copiable para compartir `/cliente/resena`.
+
+## Liquidaciones
+
+La ruta `/app/control/liquidaciones` calcula sobre `barber_production_entries`.
+
+Reglas:
+
+* Caja real, produccion y liquidacion son conceptos separados.
+* Servicios usan produccion calculada ya registrada.
+* Productos `barber_product` suman credito vendedor.
+* `snack` no suma credito vendedor.
+* Admin puede generar borrador, aprobar y marcar pagado.
+* Una liquidacion `approved` o `paid` guarda snapshot y no debe recalcularse automaticamente.
+
+## WhatsApp por estado
+
+Las reservas usan plantillas por estado:
+
+* `primer_contacto`
+* `seguimiento`
+* `recordatorio`
+* `reprogramacion`
+* `cancelacion`
+* `no_asistio`
+* `agradecimiento`
+
+Si falta una plantilla, el sistema muestra alerta y no abre WhatsApp. La generacion del link se audita como `whatsapp_link_generated`.
+
+## Modo Local / Kiosko
+
+Rutas:
+
+* `/local`
+* `/local/agenda`
+* `/local/atenciones/nueva`
+* `/local/atenciones/[id]`
+
+Seguridad:
+
+* Usa token de dispositivo generado por admin via `POST /api/control/local-devices`.
+* El token se guarda hasheado en `local_device_tokens`.
+* El modo local solo ve agenda de su sede y confirma atenciones.
+* Caja cobra despues desde pendientes de cobro.

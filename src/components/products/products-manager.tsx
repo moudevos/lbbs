@@ -45,7 +45,7 @@ export function ProductsManager() {
   }, []);
 
   function blank(): Product {
-    return { name: "", description: "", category: "Bebidas", salePrice: 0, cost: "", stockCurrent: 0, stockMinimum: 0, branchId: "", countsForSellerCredit: false, sellerCreditAmount: 2 };
+    return { name: "", description: "", category: "snack", salePrice: 0, cost: "", stockCurrent: 0, stockMinimum: 0, branchId: "", countsForSellerCredit: false, sellerCreditAmount: 0 };
   }
 
   function fromRow(row: Product): Product {
@@ -106,7 +106,15 @@ export function ProductsManager() {
         <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Nombre" value={editing.name} onChange={(value) => setEditing({ ...editing, name: value })} />
-            <Input label="Categoria" value={editing.category} onChange={(value) => setEditing({ ...editing, category: value })} />
+            <label className="text-sm text-[var(--text-muted)]">Categoria
+              <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={editing.category} onChange={(event) => {
+                const category = event.target.value;
+                setEditing({ ...editing, category, countsForSellerCredit: category === "barber_product", sellerCreditAmount: category === "barber_product" ? 2 : 0 });
+              }}>
+                <option value="snack">Snack / bebida</option>
+                <option value="barber_product">Producto de barberia</option>
+              </select>
+            </label>
             <Input label="Descripcion" value={editing.description} onChange={(value) => setEditing({ ...editing, description: value })} />
             <Input label="Precio venta" type="number" value={editing.salePrice} onChange={(value) => setEditing({ ...editing, salePrice: value })} />
             <Input label="Costo opcional" type="number" value={editing.cost} onChange={(value) => setEditing({ ...editing, cost: value })} />

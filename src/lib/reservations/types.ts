@@ -38,5 +38,6 @@ export type ReservationSummary = {
   barber: string | null;
   barberId: string | null;
   whatsappUrl: string;
+  whatsappTemplateMissing?: string | null;
   serviceOrderId?: string | null;
 };

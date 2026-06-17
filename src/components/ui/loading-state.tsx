@@ -22,6 +22,16 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
+export function CardSkeleton({ cards = 4 }: { cards?: number }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: cards }).map((_, index) => (
+        <div key={index} className="h-36 animate-pulse rounded-lg border border-[var(--border-soft)] bg-white/5" />
+      ))}
+    </div>
+  );
+}
+
 export function FormLoadingOverlay({ show }: { show: boolean }) {
   if (!show) return null;
   return <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/70 text-sm text-[var(--text-muted)]">Guardando...</div>;

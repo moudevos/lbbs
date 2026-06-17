@@ -31,6 +31,8 @@ export function validatePaymentSplits(total: number, splits: PaymentSplit[]) {
   return paid === normalizeMoney(total) ? null : "La suma de pagos debe coincidir exactamente con el total";
 }
 
+export const missingAttentionItemsMessage = "Agrega al menos un servicio, adicional o producto antes de guardar la atención.";
+
 export async function createServiceOrder({
   admin,
   branchId,
@@ -45,7 +47,9 @@ export async function createServiceOrder({
   reservationId,
   origin = reservationId ? "reservation" : "walk_in",
   discountAmount = 0,
-  rewardRedemptionId = null
+  rewardRedemptionId = null,
+  status = "registrado",
+  serviceDate = null
 }: {
   admin: AdminClient;
   branchId: string;
@@ -55,12 +59,14 @@ export async function createServiceOrder({
   serviceId?: string | null;
   total: number;
   additions?: { name: string; amount: number }[];
-  productItems?: { productId: string; quantity: number; unitPrice?: number }[];
+  productItems?: { productId: string; quantity: number; unitPrice?: number; soldByEmployeeId?: string | null }[];
   observations?: string | null;
   reservationId?: string | null;
-  origin?: "walk_in" | "reservation";
+  origin?: "walk_in" | "reservation" | "local_device" | "local";
   discountAmount?: number;
   rewardRedemptionId?: string | null;
+  status?: "registrado" | "pendiente_pago";
+  serviceDate?: string | null;
 }) {
   if (reservationId) {
     const { data: existing } = await admin
@@ -84,6 +90,10 @@ export async function createServiceOrder({
   const products = await resolveProductItems(admin, branchId, productItems ?? []);
   if (products.error) return { error: products.error };
 
+  if (!serviceId && cleanAdditions.length === 0 && (products.items ?? []).length === 0) {
+    return { error: missingAttentionItemsMessage };
+  }
+
   const serviceAmount = serviceId ? await getServicePrice(admin, serviceId, total) : 0;
   const additionsTotal = cleanAdditions.reduce((sum, item) => sum + normalizeMoney(item.amount), 0);
   const productsTotal = (products.items ?? []).reduce((sum, item) => sum + normalizeMoney(item.subtotal), 0);
@@ -99,14 +109,15 @@ export async function createServiceOrder({
       customer_id: customerResult.customer.id,
       service_id: serviceId ?? null,
       origin,
-      status: "registrado",
+      status,
       subtotal,
       total: finalTotal,
       total_paid: 0,
       balance: finalTotal,
       discount_amount: normalizeMoney(discountAmount),
       reward_redemption_id: rewardRedemptionId,
-      attended_at: new Date().toISOString(),
+      attended_at: serviceDate ? `${serviceDate}T12:00:00.000Z` : new Date().toISOString(),
+      service_date: serviceDate ?? new Date().toISOString().slice(0, 10),
       observations: observations ?? null
     })
     .select("id")
@@ -160,7 +171,10 @@ export async function createServiceOrder({
       unit_price: item.unitPrice,
       amount: item.subtotal,
       subtotal: item.subtotal,
-      branch_id: branchId
+      branch_id: branchId,
+      sold_by_employee_id: item.soldByEmployeeId,
+      counts_for_seller_credit: item.countsForSellerCredit,
+      seller_credit_amount: item.sellerCreditAmount
     })));
   }
 
@@ -208,12 +222,13 @@ export async function convertReservationToServiceOrder(admin: AdminClient, reser
       customer_id: reservation.customer_id,
       service_id: reservation.service_id,
       origin: "reservation",
-      status: "registrado",
+      status: "pendiente_pago",
       subtotal: total,
       total,
       total_paid: 0,
       balance: total,
       attended_at: reservation.starts_at,
+      service_date: String(reservation.starts_at).slice(0, 10),
       observations: reservation.observations ?? null
     })
     .select("id")
@@ -241,12 +256,14 @@ export async function convertReservationToServiceOrder(admin: AdminClient, reser
 export async function payServiceOrder(admin: AdminClient, serviceOrderId: string, method: PaymentMethod, splits?: PaymentSplit[], actorUserId?: string | null) {
   const { data: order, error } = await admin
     .from("service_orders")
-    .select("id,total,status,service_id")
+    .select("id,total,status,service_id,service_order_items(item_type)")
     .eq("id", serviceOrderId)
     .maybeSingle();
 
   if (error || !order) return NextResponse.json({ error: error?.message ?? "Servicio no encontrado" }, { status: 404 });
   if (order.status === "anulado") return NextResponse.json({ error: "No se puede pagar un servicio anulado" }, { status: 400 });
+  const hasBillableItem = (order.service_order_items ?? []).some((item: any) => ["service", "custom_service", "manual_extra", "product"].includes(item.item_type));
+  if (!hasBillableItem) return NextResponse.json({ error: missingAttentionItemsMessage }, { status: 400 });
 
   const total = normalizeMoney(order.total);
   const paymentSplits = buildPaymentSplits(method, total, splits);
@@ -346,14 +363,14 @@ async function getServicePrice(admin: AdminClient, serviceId: string, fallback: 
   return normalizeMoney(data?.price ?? fallback ?? 0);
 }
 
-async function resolveProductItems(admin: AdminClient, branchId: string, items: { productId: string; quantity: number; unitPrice?: number }[]) {
+async function resolveProductItems(admin: AdminClient, branchId: string, items: { productId: string; quantity: number; unitPrice?: number; soldByEmployeeId?: string | null }[]) {
   const resolved = [];
   for (const item of items) {
     const quantity = Math.trunc(Number(item.quantity ?? 0));
     if (!item.productId || quantity <= 0) return { error: "Cada producto debe tener cantidad mayor a 0" };
     const { data: product, error } = await admin
       .from("products")
-      .select("id,name,sale_price,branch_id,is_active")
+      .select("id,name,sale_price,branch_id,is_active,category,counts_for_seller_credit,seller_credit_amount")
       .eq("id", item.productId)
       .maybeSingle();
     if (error || !product || !product.is_active) return { error: error?.message ?? "Producto no encontrado" };
@@ -373,7 +390,10 @@ async function resolveProductItems(admin: AdminClient, branchId: string, items: 
       quantity,
       unitPrice,
       subtotal: normalizeMoney(unitPrice * quantity),
-      previousStock: currentStock
+      previousStock: currentStock,
+      soldByEmployeeId: item.soldByEmployeeId ?? null,
+      countsForSellerCredit: Boolean(product.counts_for_seller_credit || product.category === "barber_product"),
+      sellerCreditAmount: Number(product.seller_credit_amount ?? 0)
     });
   }
   return { items: resolved };

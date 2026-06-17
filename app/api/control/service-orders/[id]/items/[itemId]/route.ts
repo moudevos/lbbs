@@ -20,7 +20,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
   if (context.employee.role === "recepcion" && order.branch_id !== context.employee.branchId) {
     return NextResponse.json({ error: "Atención fuera de tu sede" }, { status: 403 });
   }
-  if (order.status !== "registrado") return NextResponse.json({ error: "No se puede editar una atención pagada o anulada" }, { status: 400 });
+  if (!["registrado", "pendiente_pago"].includes(order.status)) return NextResponse.json({ error: "No se puede editar una atención pagada o anulada" }, { status: 400 });
 
   const { data: item, error: itemError } = await context.admin
     .from("service_order_items")

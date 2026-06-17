@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { resolveBranchScope } from "@/lib/branch-scope/branch-scope";
 import { writeAuditLog } from "@/lib/audit";
-import { createServiceOrder, normalizeMoney } from "@/lib/service-orders/server";
+import { createServiceOrder, missingAttentionItemsMessage, normalizeMoney } from "@/lib/service-orders/server";
 import { isValidPeruMobilePhone } from "@/lib/customers/phone";
 
 export async function GET(request: NextRequest) {
@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
 
   let query = context.admin
     .from("service_orders")
-    .select("id,status,origin,subtotal,total,total_paid,balance,discount_amount,attended_at,created_at,paid_at,voided_at,branches(name),customers(full_name,phone,customer_reward_accounts(available_rewards,earned_rewards,redeemed_rewards)),employees(first_name,last_name),services(name,sku),service_order_items(item_type,name,description,quantity,unit_price,subtotal,products(name,sku)),payment_details(method,amount,reference)")
-    .gte("attended_at", `${from}T00:00:00`)
-    .lte("attended_at", `${to}T23:59:59`)
+    .select("id,status,origin,subtotal,total,total_paid,balance,discount_amount,service_date,attended_at,created_at,paid_at,voided_at,branches(name),customers(full_name,phone,customer_reward_accounts(available_rewards,earned_rewards,redeemed_rewards)),employees(first_name,last_name),services(name,sku),service_order_items(item_type,name,description,quantity,unit_price,subtotal,products(name,sku)),payment_details(method,amount,reference)")
+    .gte("service_date", from)
+    .lte("service_date", to)
     .order("attended_at", { ascending: false });
 
   const scope = resolveBranchScope(context.employee, branchId);
@@ -48,9 +48,13 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const branchId = context.employee.role === "admin" ? body.branchId : context.employee.branchId;
   const hasService = Boolean(body.serviceId);
+  const hasAdditions = Array.isArray(body.additions) && body.additions.some((item: any) => item.name && Number(item.amount) > 0);
   const hasProducts = Array.isArray(body.productItems) && body.productItems.length > 0;
-  if (!branchId || !body.customerPhone || !body.customerName || !body.employeeId || (!hasService && !hasProducts)) {
-    return NextResponse.json({ error: "Sede, cliente, barbero y al menos un servicio o producto son requeridos" }, { status: 400 });
+  if (!branchId || !body.customerPhone || !body.customerName || !body.employeeId) {
+    return NextResponse.json({ error: "Sede, cliente y barbero son requeridos" }, { status: 400 });
+  }
+  if (!hasService && !hasAdditions && !hasProducts) {
+    return NextResponse.json({ error: missingAttentionItemsMessage }, { status: 400 });
   }
   if (!isValidPeruMobilePhone(body.customerPhone)) {
     return NextResponse.json({ error: "Ingresa un celular peruano valido de 9 digitos" }, { status: 400 });
@@ -66,7 +70,8 @@ export async function POST(request: NextRequest) {
     total: normalizeMoney(body.total),
     additions: body.additions ?? [],
     productItems: body.productItems ?? [],
-    observations: body.observations ?? null
+    observations: body.observations ?? null,
+    serviceDate: context.employee.role === "admin" && body.serviceDate ? body.serviceDate : new Date().toISOString().slice(0, 10)
   });
 
   if (result.error || !result.serviceOrderId) {
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
     eventType: "create",
     tableName: "service_orders",
     recordId: result.serviceOrderId,
-    newData: { branch_id: branchId, total: body.total, customer_created: result.customerCreated, products: body.productItems ?? [] }
+    newData: { branch_id: branchId, total: body.total, service_date: context.employee.role === "admin" && body.serviceDate ? body.serviceDate : new Date().toISOString().slice(0, 10), customer_created: result.customerCreated, products: body.productItems ?? [] }
   });
 
   if ((body.productItems ?? []).length > 0) {

@@ -1,5 +1,6 @@
 import { buildWhatsAppUrl } from "./whatsapp";
 import type { ReservationSummary } from "./types";
+import { buildWhatsAppUrlForStatus, type WhatsAppTemplateMap } from "@/lib/whatsapp/build-whatsapp-message";
 
 type ReservationRow = {
   id: string;
@@ -23,7 +24,7 @@ function first<T>(value: T | T[] | null | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export function mapReservation(row: ReservationRow, template?: string | null): ReservationSummary {
+export function mapReservation(row: ReservationRow, template?: string | null, templates?: WhatsAppTemplateMap): ReservationSummary {
   const branch = first(row.branches);
   const customer = first(row.customers);
   const service = first(row.services);
@@ -33,6 +34,25 @@ export function mapReservation(row: ReservationRow, template?: string | null): R
   const branchName = branch?.name ?? "Sede";
   const customerName = customer?.full_name ?? "Cliente";
   const serviceName = service?.name ?? "Servicio";
+
+  const date = new Date(row.starts_at);
+  const statusWhatsApp = templates
+    ? buildWhatsAppUrlForStatus({
+        phone: customer?.phone ?? branch?.phone ?? null,
+        templates,
+        context: {
+          customer: customerName,
+          branch: branchName,
+          date: date.toLocaleDateString("es-PE"),
+          time: date.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+          barber,
+          service: serviceName,
+          price: row.price,
+          branchPhone: branch?.phone ?? null,
+          status: row.status
+        }
+      })
+    : null;
 
   return {
     id: row.id,
@@ -52,7 +72,7 @@ export function mapReservation(row: ReservationRow, template?: string | null): R
     barber,
     barberId: row.employee_id,
     serviceOrderId: serviceOrder?.id ?? null,
-    whatsappUrl: buildWhatsAppUrl({
+    whatsappUrl: statusWhatsApp?.url || buildWhatsAppUrl({
       phone: customer?.phone ?? branch?.phone ?? null,
       template,
       customer: customerName,
@@ -61,6 +81,7 @@ export function mapReservation(row: ReservationRow, template?: string | null): R
       barber,
       service: serviceName,
       price: row.price
-    })
+    }),
+    whatsappTemplateMissing: statusWhatsApp?.missingTemplateKey ?? null
   };
 }

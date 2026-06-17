@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { BadgeCheck, Plus, Trash2 } from "lucide-react";
 import { PaymentSplitEditor } from "./payment-split-editor";
 import { PaymentMethodBadge } from "./payment-method-badge";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { PaymentMethod, PaymentSplit } from "@/lib/service-orders/types";
-import type { BarberOption } from "@/lib/reservations/types";
+import type { BarberOption, ServiceOption } from "@/lib/reservations/types";
 
 type Order = Record<string, any>;
 type Product = { id: string; name: string; sku: string; sale_price: number; branch_id: string | null; counts_for_seller_credit?: boolean; seller_credit_amount?: number; product_branch_stock?: { branch_id: string; stock_current: number }[] };
@@ -17,9 +18,12 @@ function first<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export function ServiceOrderDetail({ id }: { id: string }) {
+  const searchParams = useSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [barbers, setBarbers] = useState<BarberOption[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
+  const [serviceId, setServiceId] = useState("");
   const [extraName, setExtraName] = useState("");
   const [extraAmount, setExtraAmount] = useState("");
   const [productId, setProductId] = useState("");
@@ -46,6 +50,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     const optionsData = await optionsResponse.json();
     setProducts(productsData.products ?? []);
     setBarbers((optionsData.barbers ?? []).filter((item: BarberOption) => !branch?.id || item.branchId === branch.id));
+    setServices((optionsData.services ?? []).filter((item: ServiceOption) => !branch?.id || !item.branchId || item.branchId === branch.id));
   }
 
   useEffect(() => {
@@ -76,6 +81,18 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     if (!response.ok) return showError("No se pudo agregar adicional", data.error ?? "Revisa el monto.");
     setExtraName("");
     setExtraAmount("");
+    await load();
+  }
+
+  async function addService() {
+    const response = await fetch(`/api/control/service-orders/${id}/items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemType: "service", serviceId })
+    });
+    const data = await response.json();
+    if (!response.ok) return showError("No se pudo agregar servicio", data.error ?? "Selecciona un servicio.");
+    setServiceId("");
     await load();
   }
 
@@ -192,6 +209,16 @@ export function ServiceOrderDetail({ id }: { id: string }) {
         {!locked ? (
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
+              <h2 className="font-semibold">Agregar servicio</h2>
+              <div className="mt-3 grid gap-2">
+                <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={serviceId} onChange={(event) => setServiceId(event.target.value)}>
+                  <option value="">Seleccionar servicio</option>
+                  {services.map((item) => <option key={item.id} value={item.id}>{item.name} - {item.price == null ? "Consultar" : `S/ ${Number(item.price).toFixed(2)}`}</option>)}
+                </select>
+                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={addService}><Plus size={16} /> Agregar servicio</button>
+              </div>
+            </div>
+            <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
               <h2 className="font-semibold">Agregar adicional</h2>
               <div className="mt-3 grid gap-2">
                 <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Nombre" value={extraName} onChange={(event) => setExtraName(event.target.value)} />
@@ -230,7 +257,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
         ) : null}
       </div>
 
-      <aside className="grid h-max gap-4 rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
+      <aside className={`grid h-max gap-4 rounded-lg border bg-black/35 p-4 ${searchParams.get("focus") === "payment" ? "border-[var(--gold)] shadow-[0_0_0_1px_rgba(212,175,55,0.35)]" : "border-[var(--border-soft)]"}`}>
         <div>
           <h2 className="font-semibold">Resumen</h2>
           <div className="mt-3 grid gap-2 text-sm">

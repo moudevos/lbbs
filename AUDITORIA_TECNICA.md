@@ -1,5 +1,129 @@
 # Auditoria tecnica - La Bajadita Barber Shop
 
+## Actualizacion 2026-06-17 - Realtime, rewards, imports y exports
+
+### Cambios aplicados
+
+- Se agrego `supabase/sql/021_realtime_rewards_import_export.sql` con indices para imports/reportes/rewards y publicacion realtime de tablas operativas.
+- Se agregaron helpers `src/lib/realtime/realtime-client.ts` y `src/lib/realtime/realtime-events.ts`.
+- Se agrego `RealtimeNotificationCenter` en el header del panel interno.
+- Realtime operativo escucha reservas, atenciones y stock por sede cuando la app esta abierta.
+- Dispositivo local usa sincronizacion automatica cada 15 segundos con token local para reflejar reservas confirmadas sin recargar manualmente.
+- Caja ya no envia al modal simple desde pendientes: el boton `Pagar` abre `/app/control/atenciones/[id]?focus=payment`.
+- La vista de atencion resalta el bloque de pago cuando llega con `focus=payment`.
+- El detalle de atencion permite agregar servicio, adicional y producto, y quitar items mientras la atencion esta `registrado` o `pendiente_pago`.
+- Se creo modulo separado `/app/control/rewards` con listado, progreso `x / 6`, disponibles, canjeadas y canje manual.
+- Se agregaron APIs `GET /api/control/rewards`, `GET /api/control/rewards/[customerId]` y `POST /api/control/rewards/[customerId]/redeem`.
+- Se agrego importacion CSV de Google Contacts via `POST /api/control/customers/import`.
+- Se agregaron plantillas/import CSV para servicios y empleados internos sin crear usuarios Auth masivamente.
+- Se agregaron exports CSV para caja, liquidaciones, produccion, rankings y clientes.
+- Se agrego panel CSV reusable para clientes, servicios y empleados.
+
+### Decisiones tecnicas
+
+- No se instalo libreria Excel; se uso CSV compatible con Excel como fallback explicito para reducir dependencias.
+- El sistema actual descuenta stock al agregar producto a una atencion y revierte stock si el item se elimina antes de pago; se mantiene esa decision y queda documentada.
+- Realtime directo se aplica al dashboard autenticado. En dispositivo local se usa refresh automatico porque opera con token local, no sesion Supabase Auth.
+
+### Validacion
+
+- `npm run lint`: OK.
+- `npm run build`: OK.
+- `npm run smoke:supabase`: falla por datos de entorno. Error: `No active admin employee found with a valid branch and must_change_password=false`.
+
+## Actualizacion 2026-06-17 - Cierre reglas local, atenciones, WhatsApp y rankings
+
+### Cambios aplicados
+
+- Se agrego `supabase/sql/020_local_device_attention_production_fixes.sql` con `service_date`, `can_perform_services`, indices operativos, soporte `pendiente_pago` y `origin = local_device`.
+- La agenda local ahora muestra solo reservas `confirmado` de la sede del dispositivo.
+- La confirmacion local rechaza reservas que no esten confirmadas y crea atencion `pendiente_pago` con origen `local_device`.
+- El modulo de dispositivos ya no muestra token crudo ni link completo con token visible; solo QR y boton para copiar enlace seguro.
+- Se agrego `/local/atenciones/nueva` como pagina completa de borrador antes de guardar.
+- Se agrego `POST /api/local/service-orders` para crear atenciones directas desde dispositivo sin cobrar.
+- Se agrego `/local/atenciones/[id]` con vista local de solo lectura para atenciones pendientes.
+- Se agrego `/local/ranking` y `GET /api/local/ranking` con conteo simple de servicios por barbero, sin montos financieros.
+- Se centralizo la validacion de atenciones sin items reales en `missingAttentionItemsMessage`.
+- Dashboard, local y pago rechazan atenciones sin servicio, adicional o producto.
+- `GET /api/control/service-orders` usa `service_date` para reportes operativos.
+- Admin puede enviar `serviceDate`; recepcion y dispositivo quedan en fecha actual.
+- WhatsApp en reserva `pendiente` marca automaticamente `contactado` y audita el cambio.
+- Se agrego `can_perform_services` al flujo de empleados para habilitar recepcion productiva de forma interna.
+- `/app/control/atenciones/nueva` deja de abrir como modal cuando se entra por ruta directa.
+- Sidebar elimina el grupo `Principal`; Dashboard, Reservas, Agenda, Atenciones y Caja quedan como botones directos.
+- Se agrego `/app/control/rankings` visible para admin con rankings separados de servicios, produccion neta, venta barber_product y creditos.
+
+### Validacion
+
+- `npm run lint`: OK.
+- `npm run build`: OK.
+- `npm run smoke:supabase`: falla por datos de entorno. Error: `No active admin employee found with a valid branch and must_change_password=false`.
+
+## Actualizacion 2026-06-17 - Avatares, duplicados, dispositivos, caja y borrador de atencion
+
+### Problemas corregidos
+
+- Las fotos de empleados podian quedar rotas porque `employee-avatars` usa paths de Storage y no una URL publica estable.
+- Guardar una URL firmada como `profile_photo_url` generaba riesgo de expiracion y avatares rotos.
+- Landing podia mostrar servicios, resenas o equipo duplicado si la respuesta traia registros repetidos.
+- Faltaba gestion operativa de dispositivos locales para kiosko/agenda local.
+- La caja no separaba claramente servicios, snacks, productos de barbero, pendientes, anulados, metodos y origenes.
+- El formulario de atenciones guardaba al final, pero la UI no comunicaba con claridad que era un borrador en memoria hasta confirmar.
+- Liquidaciones mostraba porcentaje con formato monetario en lugar de porcentaje.
+
+### Cambios aplicados
+
+- Se agrego `src/lib/storage/resolve-public-image-url.ts` para resolver imagenes desde Supabase Storage en servidor, usando URL publica o firmada segun bucket.
+- Se agrego fallback visual por iniciales cuando un empleado no tiene foto o la carga de imagen falla.
+- `GET /api/control/employees` y `GET /api/public/team` resuelven `profile_photo_path` desde `employee-avatars` antes de responder.
+- La subida de avatar guarda `profile_photo_path` como fuente de verdad y no persiste URLs firmadas expirables.
+- Se agrego `src/lib/utils/dedupe-by-id.ts` y se aplico en servicios, resenas y equipo publico.
+- Se agrego `supabase/sql/019_device_kiosk_loaders_cash_fixes.sql` con `local_devices`, politicas, tokens revocables y soporte de estado `pendiente_pago`.
+- Se agrego `/app/control/dispositivos` con creacion, regeneracion, revocacion, enlace, copia y QR.
+- Se agrego `/local/login` para guardar token local seguro en navegador y entrar al flujo local.
+- Caja ahora devuelve desglose de bruto, cobrado, pendiente, anulado, servicios, deducciones productivas, snacks, productos de barbero, creditos de vendedor, metodos, origenes y ranking.
+- Atenciones usa componentes de borrador/resumen/barra de guardado para comunicar que no crea stock, produccion ni auditoria hasta guardar.
+- Liquidaciones formatea porcentajes como porcentaje y mantiene importes monetarios con etiquetas mas claras.
+- El sidebar mantiene ancho fijo y agrupa modulos por funcion mediante secciones plegables; no colapsa todo el sidebar.
+
+### Archivos principales modificados
+
+- `app/api/control/employees/route.ts`
+- `app/api/control/employees/[id]/avatar/route.ts`
+- `app/api/public/team/route.ts`
+- `app/api/public/services/route.ts`
+- `app/api/public/reviews/route.ts`
+- `app/api/control/local-devices/route.ts`
+- `app/api/control/local-devices/[id]/route.ts`
+- `app/api/control/cash/summary/route.ts`
+- `app/local/login/page.tsx`
+- `app/app/control/dispositivos/page.tsx`
+- `src/components/control/control-shell.tsx`
+- `src/components/landing/team-section.tsx`
+- `src/components/landing/services-marquee.tsx`
+- `src/components/landing/testimonials-marquee.tsx`
+- `src/components/local/local-devices-manager.tsx`
+- `src/components/service-orders/service-orders-manager.tsx`
+- `src/components/attentions/attention-draft-summary.tsx`
+- `src/components/attentions/attention-save-bar.tsx`
+- `src/components/liquidations/liquidations-manager.tsx`
+- `src/lib/storage/resolve-public-image-url.ts`
+- `src/lib/utils/dedupe-by-id.ts`
+- `supabase/sql/019_device_kiosk_loaders_cash_fixes.sql`
+
+### Notas de seguridad y datos
+
+- `.data.local` no fue modificado.
+- No se imprimieron credenciales reales ni se agregaron secretos al repositorio.
+- `SUPABASE_SERVICE_ROLE_KEY` sigue limitado a rutas y helpers de servidor.
+- `profile_photo_path` queda como dato persistente; las URLs firmadas se generan al responder desde servidor.
+
+### Validacion
+
+- `npm run lint`: OK.
+- `npm run build`: OK.
+- `npm run smoke:supabase`: falla por datos de entorno. Error: `No active admin employee found with a valid branch and must_change_password=false`.
+
 Fecha: 2026-06-16
 
 ## Problemas encontrados

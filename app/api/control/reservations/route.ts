@@ -65,17 +65,18 @@ export async function GET(request: NextRequest) {
     query = query.eq("employee_id", employee.employeeId);
   }
 
-  const [reservations, template] = await Promise.all([
+  const [reservations, templates] = await Promise.all([
     query,
-    admin.from("whatsapp_templates").select("body").eq("key", "primer_contacto").maybeSingle()
+    admin.from("whatsapp_templates").select("key,body").in("key", ["primer_contacto", "seguimiento", "recordatorio", "reprogramacion", "cancelacion", "no_asistio", "agradecimiento"])
   ]);
 
   if (reservations.error) {
     return NextResponse.json({ error: reservations.error.message }, { status: 500 });
   }
 
+  const templateMap = Object.fromEntries((templates.data ?? []).map((item) => [item.key, item.body]));
   return NextResponse.json({
-    reservations: (reservations.data ?? []).map((reservation) => mapReservation(reservation as never, template.data?.body))
+    reservations: (reservations.data ?? []).map((reservation) => mapReservation(reservation as never, templateMap.primer_contacto, templateMap))
   });
 }
 

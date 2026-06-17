@@ -44,13 +44,15 @@ export async function GET(request: NextRequest) {
 
   const schedule = await admin
     .from("branch_schedules")
-    .select("opens_at,closes_at")
+    .select("opens_at,closes_at,is_active")
     .eq("branch_id", branchId)
     .eq("day_of_week", dayOfWeek)
-    .eq("is_active", true)
     .maybeSingle();
 
   if (!schedule.error && schedule.data) {
+    if (!schedule.data.is_active) {
+      return NextResponse.json({ slots: [], open: null, close: null, durationMinutes: service.duration_minutes || 60, closed: true });
+    }
     open = schedule.data.opens_at.slice(0, 5);
     close = schedule.data.closes_at.slice(0, 5);
   }
@@ -92,7 +94,9 @@ export async function GET(request: NextRequest) {
   }));
   const slots: string[] = [];
 
-  for (let cursor = timeToMinutes(open); cursor + duration <= timeToMinutes(close); cursor += 15) {
+  const latestStart = Math.min(timeToMinutes(close) - 60, timeToMinutes(close) - duration);
+
+  for (let cursor = timeToMinutes(open); cursor <= latestStart; cursor += 15) {
     const start = toLocalDateTime(date, minutesToTime(cursor));
     const end = addMinutes(start, duration);
     const blocked = busy.some((block) => overlaps(start, end, block.start, block.end));

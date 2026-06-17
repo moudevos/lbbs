@@ -5,6 +5,7 @@ import { nextCode } from "@/lib/control/codes";
 import { generateTemporaryPassword } from "@/lib/auth/password";
 import { writeAuditLog } from "@/lib/audit";
 import { resolveBranchScope } from "@/lib/branch-scope/branch-scope";
+import { resolvePublicImageUrl } from "@/lib/storage/resolve-public-image-url";
 
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   const branchId = request.nextUrl.searchParams.get("branch_id") ?? request.nextUrl.searchParams.get("branchId");
   let query = context.admin
     .from("employees")
-    .select("id,code,first_name,last_name,phone,email,role,branch_id,is_active,must_change_password,onboarding_status,email_confirmed_at,branches(name)")
+    .select("id,code,first_name,last_name,nickname,specialty,profile_photo_path,profile_photo_url,production_percentage,can_perform_services,phone,email,role,branch_id,is_active,must_change_password,onboarding_status,email_confirmed_at,branches(name)")
     .order("code");
   if (context.employee.role === "recepcion") query = query.eq("branch_id", context.employee.branchId).eq("role", "barbero");
   const scope = resolveBranchScope(context.employee, branchId);
@@ -24,7 +25,16 @@ export async function GET(request: NextRequest) {
   if (q) query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ employees: data ?? [] });
+  const employees = await Promise.all((data ?? []).map(async (employee) => ({
+    ...employee,
+    profile_photo_url: await resolvePublicImageUrl({
+      admin: context.admin,
+      bucket: "employee-avatars",
+      path: employee.profile_photo_path,
+      fallback: employee.profile_photo_url
+    })
+  })));
+  return NextResponse.json({ employees });
 }
 
 export async function POST(request: NextRequest) {
@@ -60,6 +70,10 @@ export async function POST(request: NextRequest) {
     last_name: body.lastName,
     phone: body.phone ?? null,
     email: body.email ?? null,
+    nickname: body.nickname ?? null,
+    specialty: body.specialty ?? null,
+    production_percentage: Number(body.productionPercentage ?? 50),
+    can_perform_services: role === "barbero" ? true : Boolean(body.canPerformServices),
     must_change_password: Boolean(userId),
     onboarding_status: userId ? "pending_email_verification" : "active",
     email_confirmed_at: null,

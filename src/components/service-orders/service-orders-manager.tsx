@@ -5,12 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, Plus, ReceiptText, Trash2 } from "lucide-react";
 import { PaymentSplitEditor } from "./payment-split-editor";
 import { PaymentMethodBadge } from "./payment-method-badge";
+import { AttentionDraftSummary } from "@/components/attentions/attention-draft-summary";
+import { AttentionSaveBar } from "@/components/attentions/attention-save-bar";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { BarberOption, BranchOption, ServiceOption } from "@/lib/reservations/types";
 import type { PaymentMethod, PaymentSplit } from "@/lib/service-orders/types";
 
 type Order = Record<string, any>;
-type ProductOption = { id: string; sku: string; name: string; sale_price: number; branch_id: string | null; product_branch_stock?: { branch_id: string; stock_current: number }[] };
+type ProductOption = { id: string; sku: string; name: string; sale_price: number; category?: string | null; counts_for_seller_credit?: boolean; seller_credit_amount?: number; branch_id: string | null; product_branch_stock?: { branch_id: string; stock_current: number }[] };
 type Options = { branches: BranchOption[]; services: ServiceOption[]; barbers: BarberOption[]; products: ProductOption[] };
 
 export function ServiceOrdersManager({ mine = false, createOpenInitially = false }: { mine?: boolean; createOpenInitially?: boolean }) {
@@ -100,7 +102,7 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
         </div>
       </div>
 
-      {open && me ? <ServiceOrderForm me={me} options={options} onClose={() => setOpen(false)} onCreated={async () => { setOpen(false); await load(); }} /> : null}
+      {open && me ? <ServiceOrderForm me={me} options={options} embedded={createOpenInitially} onClose={() => setOpen(false)} onCreated={async () => { setOpen(false); await load(); }} /> : null}
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {orders.map((order) => {
@@ -156,7 +158,7 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
   );
 }
 
-function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: string; branchId: string | null }; options: Options; onClose: () => void; onCreated: () => Promise<void> }) {
+function ServiceOrderForm({ me, options, embedded = false, onClose, onCreated }: { me: { role: string; branchId: string | null }; options: Options; embedded?: boolean; onClose: () => void; onCreated: () => Promise<void> }) {
   const initialBranch = me.role === "recepcion" ? me.branchId ?? "" : "";
   const [form, setForm] = useState({
     branchId: initialBranch,
@@ -172,8 +174,10 @@ function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: str
   const [additions, setAdditions] = useState<{ name: string; amount: number }[]>([]);
   const [productId, setProductId] = useState("");
   const [productQuantity, setProductQuantity] = useState("1");
-  const [productItems, setProductItems] = useState<{ productId: string; name: string; quantity: number; unitPrice: number; stock: number }[]>([]);
+  const [productSellerId, setProductSellerId] = useState("");
+  const [productItems, setProductItems] = useState<{ productId: string; name: string; quantity: number; unitPrice: number; stock: number; soldByEmployeeId?: string | null; creditLabel?: string }[]>([]);
   const [customerLookup, setCustomerLookup] = useState<{ found: boolean; totalVisits?: number; availableRewards?: number } | null>(null);
+  const [saving, setSaving] = useState(false);
   const branchServices = options.services.filter((service) => !form.branchId || !service.branchId || service.branchId === form.branchId);
   const branchBarbers = options.barbers.filter((barber) => !form.branchId || barber.branchId === form.branchId);
   const branchProducts = options.products.filter((product) => !form.branchId || !product.branch_id || product.branch_id === form.branchId);
@@ -191,20 +195,25 @@ function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: str
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch("/api/control/service-orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        total: computedTotal,
-        additions,
-        productItems: productItems.map((item) => ({ productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice }))
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) return showError("No se pudo registrar", data.error ?? "Revisa los datos.");
-    await onCreated();
-    await showSuccess("Atención registrada");
+    setSaving(true);
+    try {
+      const response = await fetch("/api/control/service-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          total: computedTotal,
+          additions,
+          productItems: productItems.map((item) => ({ productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice, soldByEmployeeId: item.soldByEmployeeId ?? null }))
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo registrar", data.error ?? "Revisa los datos.");
+      await onCreated();
+      await showSuccess("Atención registrada");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function findCustomer() {
@@ -221,11 +230,11 @@ function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: str
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 px-4 py-6">
-      <form onSubmit={submit} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-main)] p-5">
+    <div className={embedded ? "mx-auto grid max-w-5xl px-0 py-0" : "fixed inset-0 z-50 grid place-items-center bg-black/75 px-4 py-6"}>
+      <form onSubmit={submit} className={embedded ? "w-full rounded-2xl border border-[var(--border-soft)] bg-black/35 p-5" : "max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-main)] p-5"}>
         <div className="flex items-start justify-between gap-4">
           <div><p className="text-xs uppercase tracking-[0.2em] text-[var(--gold-soft)]">Atención directa</p><h2 className="mt-2 text-2xl font-semibold">Registrar atención</h2></div>
-          <button type="button" className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={onClose}>Cerrar</button>
+          <button type="button" className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={onClose}>{embedded ? "Volver" : "Cerrar"}</button>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <Select label="Sede" value={form.branchId} disabled={me.role === "recepcion"} onChange={(value) => setForm({ ...form, branchId: value, employeeId: "", serviceId: "" })} options={options.branches.map((branch) => ({ value: branch.id, label: branch.name }))} />
@@ -244,7 +253,7 @@ function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: str
         </div>
         <div className="mt-4 rounded-lg border border-[var(--border-soft)] bg-black/25 p-3">
           <p className="text-sm font-semibold">Adicionales</p>
-          <div className="mt-2 grid gap-2 md:grid-cols-[1fr_120px_auto]">
+          <div className="mt-2 grid gap-2 md:grid-cols-[1fr_120px_1fr_auto]">
             <Input label="Nombre" value={additionName} onChange={setAdditionName} />
             <Input label="Monto" type="number" value={additionAmount} onChange={setAdditionAmount} />
             <button type="button" className="self-end rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={() => {
@@ -269,6 +278,12 @@ function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: str
               </select>
             </label>
             <Input label="Cantidad" type="number" value={productQuantity} onChange={setProductQuantity} />
+            <label className="text-sm text-[var(--text-muted)]">Vendedor
+              <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={productSellerId} onChange={(event) => setProductSellerId(event.target.value)}>
+                <option value="">Recepcion / sin credito</option>
+                {branchBarbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.name}</option>)}
+              </select>
+            </label>
             <button type="button" className="self-end rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={() => {
               const product = branchProducts.find((item) => item.id === productId);
               const quantity = Math.trunc(Number(productQuantity));
@@ -278,14 +293,24 @@ function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: str
                 showError("Stock insuficiente", `Solo hay ${stock} unidad(es) en esta sede.`);
                 return;
               }
-              setProductItems([...productItems, { productId: product.id, name: product.name, quantity, unitPrice: Number(product.sale_price), stock: Number(stock) }]);
+              const countsCredit = Boolean(product.counts_for_seller_credit || product.category === "barber_product");
+              setProductItems([...productItems, {
+                productId: product.id,
+                name: product.name,
+                quantity,
+                unitPrice: Number(product.sale_price),
+                stock: Number(stock),
+                soldByEmployeeId: productSellerId || null,
+                creditLabel: countsCredit && productSellerId ? `Suma S/ ${Number(product.seller_credit_amount ?? 2).toFixed(2)} al vendedor por unidad` : "No suma incentivo"
+              }]);
               setProductId("");
               setProductQuantity("1");
+              setProductSellerId("");
             }}>Agregar</button>
           </div>
           {productItems.map((item, index) => (
             <div key={`${item.productId}-${index}`} className="mt-2 flex items-center justify-between rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm">
-              <span>{item.name} x {item.quantity}</span>
+              <span>{item.name} x {item.quantity}<span className="ml-2 text-xs text-[var(--gold-soft)]">{item.creditLabel}</span></span>
               <span>S/ {(item.unitPrice * item.quantity).toFixed(2)}</span>
             </div>
           ))}
@@ -293,13 +318,8 @@ function ServiceOrderForm({ me, options, onClose, onCreated }: { me: { role: str
         <label className="mt-4 block text-sm text-[var(--text-muted)]">Observaciones
           <textarea className="mt-2 min-h-24 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={form.observations} onChange={(event) => setForm({ ...form, observations: event.target.value })} />
         </label>
-        <div className="mt-5 rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-[var(--text-muted)]">Total atención</span>
-            <strong className="text-2xl text-[var(--gold)]">S/ {computedTotal.toFixed(2)}</strong>
-          </div>
-        </div>
-        <button className="mt-5 w-full rounded-lg bg-[var(--gold)] px-4 py-3 font-semibold text-black">Guardar atención</button>
+        <AttentionDraftSummary total={computedTotal} itemsCount={(form.serviceId ? 1 : 0) + additions.length + productItems.length} />
+        <AttentionSaveBar saving={saving} />
       </form>
     </div>
   );

@@ -2,6 +2,25 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/control/api";
 import { writeAuditLog } from "@/lib/audit";
 
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+  const context = await requireAdmin();
+  if (!context.ok) return context.error;
+  const { data, error } = await context.admin
+    .from("branch_schedules")
+    .select("day_of_week,opens_at,closes_at,is_active")
+    .eq("branch_id", params.id)
+    .order("day_of_week");
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({
+    schedules: (data ?? []).map((item) => ({
+      dayOfWeek: item.day_of_week,
+      opensAt: item.opens_at?.slice(0, 5),
+      closesAt: item.closes_at?.slice(0, 5),
+      isActive: item.is_active
+    }))
+  });
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const context = await requireAdmin();
   if (!context.ok) return context.error;

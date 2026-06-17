@@ -222,10 +222,17 @@ export function ReservationBoard({ mode }: { mode: "reservas" | "agenda" }) {
                 <p className="mt-1 text-sm text-[var(--text-muted)]">Celular: {reservation.customerPhone || "No registrado"} - Precio: {reservation.price == null ? "Por confirmar" : `S/ ${reservation.price}`}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <a className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={reservation.whatsappUrl} target="_blank">
+                <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" type="button" onClick={async () => {
+                  if (reservation.whatsappTemplateMissing || !reservation.whatsappUrl) {
+                    await showWarning("No hay plantilla configurada para este estado.", reservation.whatsappTemplateMissing ? `Falta plantilla: ${reservation.whatsappTemplateMissing}` : "");
+                    return;
+                  }
+                  await fetch(`/api/control/reservations/${reservation.id}/whatsapp-link`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: reservation.status }) });
+                  window.open(reservation.whatsappUrl, "_blank", "noopener,noreferrer");
+                }}>
                   <MessageCircle size={16} />
                   WhatsApp
-                </a>
+                </button>
                 <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" type="button" onClick={() => setDetail(reservation)}>Detalle</button>
                 <ReservationStatusFlow
                   status={reservation.status}
@@ -704,10 +711,17 @@ function ReservationDetailModal({
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <a className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={reservation.whatsappUrl} target="_blank">
+          <button type="button" className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={async () => {
+            if (reservation.whatsappTemplateMissing || !reservation.whatsappUrl) {
+              await showWarning("No hay plantilla configurada para este estado.", reservation.whatsappTemplateMissing ? `Falta plantilla: ${reservation.whatsappTemplateMissing}` : "");
+              return;
+            }
+            await fetch(`/api/control/reservations/${reservation.id}/whatsapp-link`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: reservation.status }) });
+            window.open(reservation.whatsappUrl, "_blank", "noopener,noreferrer");
+          }}>
             <MessageCircle size={16} />
             WhatsApp
-          </a>
+          </button>
           {canReschedule ? <button type="button" className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={onReschedule}>Reprogramar</button> : null}
           {reservation.serviceOrderId ? <button type="button" className="rounded-lg bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-black" onClick={onViewAttention}>Ver atencion</button> : null}
         </div>

@@ -15,6 +15,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     role,
     first_name: body.firstName,
     last_name: body.lastName,
+    nickname: body.nickname ?? null,
+    specialty: body.specialty ?? null,
+    production_percentage: Number(body.productionPercentage ?? 50),
+    can_perform_services: role === "barbero" ? true : Boolean(body.canPerformServices),
     phone: body.phone ?? null,
     email: body.email ?? null,
     is_active: body.isActive ?? true

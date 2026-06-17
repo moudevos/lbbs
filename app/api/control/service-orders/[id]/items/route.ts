@@ -22,10 +22,37 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (context.employee.role === "recepcion" && order.branch_id !== context.employee.branchId) {
     return NextResponse.json({ error: "Atención fuera de tu sede" }, { status: 403 });
   }
-  if (order.status !== "registrado") return NextResponse.json({ error: "No se puede editar una atención pagada o anulada" }, { status: 400 });
+  if (!["registrado", "pendiente_pago"].includes(order.status)) return NextResponse.json({ error: "No se puede editar una atención pagada o anulada" }, { status: 400 });
 
   let itemPayload: Record<string, unknown> | null = null;
   let auditData: Record<string, unknown> = {};
+
+  if (body.itemType === "service") {
+    if (!body.serviceId) return NextResponse.json({ error: "Servicio requerido" }, { status: 400 });
+    const { data: service, error: serviceError } = await context.admin
+      .from("services")
+      .select("id,name,price,branch_id,is_active")
+      .eq("id", body.serviceId)
+      .maybeSingle();
+    if (serviceError || !service || !service.is_active) return NextResponse.json({ error: serviceError?.message ?? "Servicio no encontrado" }, { status: 404 });
+    if (service.branch_id && service.branch_id !== order.branch_id) return NextResponse.json({ error: "Servicio fuera de sede" }, { status: 400 });
+    const amount = money(body.amount ?? service.price);
+    if (amount < 0) return NextResponse.json({ error: "Precio invalido" }, { status: 400 });
+    itemPayload = {
+      service_order_id: params.id,
+      item_type: "service",
+      service_id: service.id,
+      name: service.name,
+      description: service.name,
+      quantity: 1,
+      unit_price: amount,
+      amount,
+      subtotal: amount,
+      barber_id: order.employee_id,
+      branch_id: order.branch_id
+    };
+    auditData = { item_type: "service", service_id: service.id, amount };
+  }
 
   if (body.itemType === "manual_extra") {
     const amount = money(body.amount);

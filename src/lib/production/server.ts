@@ -1,14 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { calculateProductSellerCredit, calculateServiceProduction, money } from "./calculate-barber-production";
 
 type AdminClient = SupabaseClient<any, "public", any>;
-
-function money(value: unknown) {
-  return Math.max(Math.round(Number(value ?? 0) * 100) / 100, 0);
-}
-
-function serviceDeduction(gross: number) {
-  return gross > 60 ? 10 : 2;
-}
 
 function first<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
@@ -48,7 +41,7 @@ export async function calculateProductionForPaidOrder(admin: AdminClient, servic
       service_order_items(
         id,item_type,service_id,product_id,name,description,quantity,unit_price,amount,subtotal,barber_id,branch_id,
         sold_by_employee_id,seller_credit_amount,counts_for_seller_credit,
-        products(id,name,counts_for_seller_credit,seller_credit_amount)
+        products(id,name,category,counts_for_seller_credit,seller_credit_amount)
       )
     `)
     .eq("id", serviceOrderId)
@@ -67,9 +60,8 @@ export async function calculateProductionForPaidOrder(admin: AdminClient, servic
       const barberId = item.barber_id ?? order.employee_id;
       if (!barberId) continue;
       const gross = money(item.subtotal ?? item.amount ?? item.unit_price);
-      const deduction = Math.min(serviceDeduction(gross), gross);
-      const production = money(gross - deduction);
       const percentage = await productionPercentage(admin, barberId, order.attended_at ?? countedAt);
+      const calculated = calculateServiceProduction({ grossAmount: gross, percentage });
       rows.push({
         service_order_id: order.id,
         service_order_item_id: item.id,
@@ -79,11 +71,11 @@ export async function calculateProductionForPaidOrder(admin: AdminClient, servic
         service_id: item.service_id,
         customer_id: order.customer_id,
         entry_type: "service",
-        gross_amount: gross,
-        deduction_amount: deduction,
-        production_amount: production,
-        percentage,
-        barber_earning: money((production * percentage) / 100),
+        gross_amount: calculated.grossAmount,
+        deduction_amount: calculated.deductionAmount,
+        production_amount: calculated.productionAmount,
+        percentage: calculated.percentage,
+        barber_earning: calculated.barberEarning,
         quantity: Number(item.quantity ?? 1),
         description: item.name ?? item.description ?? "Servicio",
         counted_at: countedAt,
@@ -97,8 +89,12 @@ export async function calculateProductionForPaidOrder(admin: AdminClient, servic
       const sellerId = item.sold_by_employee_id;
       if (!counts || !sellerId) continue;
       const quantity = Number(item.quantity ?? 1);
-      const creditAmount = money(item.seller_credit_amount ?? product?.seller_credit_amount ?? 2);
-      const production = money(quantity * creditAmount);
+      const credit = calculateProductSellerCredit({
+        quantity,
+        countsForSellerCredit: counts,
+        category: product?.category,
+        sellerCreditAmount: item.seller_credit_amount ?? product?.seller_credit_amount ?? 2
+      });
       rows.push({
         service_order_id: order.id,
         service_order_item_id: item.id,
@@ -109,9 +105,9 @@ export async function calculateProductionForPaidOrder(admin: AdminClient, servic
         entry_type: "product_credit",
         gross_amount: money(item.subtotal ?? item.amount),
         deduction_amount: 0,
-        production_amount: production,
+        production_amount: credit.productionAmount,
         percentage: 100,
-        barber_earning: production,
+        barber_earning: credit.barberEarning,
         sold_by_employee_id: sellerId,
         product_id: item.product_id,
         quantity,
