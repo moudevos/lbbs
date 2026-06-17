@@ -43,6 +43,12 @@ export async function GET(request: NextRequest) {
     .eq("customer_id", customer.id)
     .maybeSingle();
 
+  const rewardResult = await admin
+    .from("customer_reward_accounts")
+    .select("available_rewards,earned_rewards,redeemed_rewards,eligible_visit_count")
+    .eq("customer_id", customer.id)
+    .maybeSingle();
+
   const { data: reservations, error: reservationsError } = await admin
     .from("reservations")
     .select("id,starts_at,status,services(name),branches(name)")
@@ -54,14 +60,20 @@ export async function GET(request: NextRequest) {
   if (reservationsError) return NextResponse.json({ error: reservationsError.message }, { status: 500 });
 
   const stats = statsResult.error ? null : statsResult.data;
+  const rewards = rewardResult.error ? null : rewardResult.data;
+  const totalVisits = Number(stats?.total_visits ?? rewards?.eligible_visit_count ?? 0);
 
   return NextResponse.json({
     found: true,
     customer: {
       name: customer.full_name,
-      totalVisits: stats?.total_visits ?? 0,
+      totalVisits,
       totalAttendedReservations: stats?.total_attended_reservations ?? 0,
-      lastVisitAt: stats?.last_visit_at ?? null
+      lastVisitAt: stats?.last_visit_at ?? null,
+      progressToNextReward: totalVisits % 6,
+      availableRewards: rewards?.available_rewards ?? 0,
+      earnedRewards: rewards?.earned_rewards ?? Math.floor(totalVisits / 6),
+      redeemedRewards: rewards?.redeemed_rewards ?? 0
     },
     history: ((reservations ?? []) as VisitReservationRow[]).map((reservation) => ({
       id: reservation.id,

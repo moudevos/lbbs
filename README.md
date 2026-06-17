@@ -98,6 +98,10 @@ Ejecutar en Supabase SQL Editor en este orden:
 9. `supabase/sql/009_first_admin_template.sql`
 10. `supabase/sql/010_reservations_agenda.sql`
 11. `supabase/sql/011_crud_modules_fixes.sql`
+12. `supabase/sql/012_employee_onboarding_rewards.sql`
+13. `supabase/sql/013_services_cash_rewards_public_agenda.sql`
+14. `supabase/sql/014_products_attentions_cash.sql`
+15. `supabase/sql/015_branch_product_stock_dashboard.sql`
 
 ## Rutas
 
@@ -162,3 +166,7 @@ Implementado:
 * SQL incremental de horarios en `010_reservations_agenda.sql`.
 * CRUD base de sedes, empleados, servicios, clientes y configuracion.
 * SQL incremental de soporte CRUD en `011_crud_modules_fixes.sql`.
+* Onboarding, celulares normalizados, conteo de visitas y rewards base en `012_employee_onboarding_rewards.sql`.
+* Servicios realizados, pagos, caja base, rewards reales y agenda publica en `013_services_cash_rewards_public_agenda.sql`.
+* Productos, stock simple y estructura POS de atenciones en `014_products_attentions_cash.sql`.
+* Stock por sede, movimientos auditables y base de dashboard gerencial en `015_branch_product_stock_dashboard.sql`.

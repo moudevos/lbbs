@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Swal from "sweetalert2";
 import { BadgeCheck, Search, Sparkles } from "lucide-react";
+import { showError, showWarning } from "@/lib/ui/swal";
 
 type Result = {
   found: boolean;
@@ -11,6 +11,10 @@ type Result = {
     totalVisits: number;
     totalAttendedReservations: number;
     lastVisitAt: string | null;
+    progressToNextReward: number;
+    availableRewards: number;
+    earnedRewards: number;
+    redeemedRewards: number;
   };
   history?: { id: string; date: string; service?: string | null; branch?: string | null }[];
 };
@@ -22,7 +26,7 @@ export function CustomerVisitsLookup() {
 
   async function search() {
     if (!phone) {
-      await Swal.fire("Celular requerido", "Ingresa tu numero para consultar asistencias.", "warning");
+      await showWarning("Celular requerido", "Ingresa tu numero para consultar asistencias.");
       return;
     }
     setLoading(true);
@@ -30,7 +34,7 @@ export function CustomerVisitsLookup() {
     const data = await response.json();
     setLoading(false);
     if (!response.ok) {
-      await Swal.fire("No se pudo consultar", data.error ?? "Error desconocido", "error");
+      await showError("No se pudo consultar", data.error ?? "Error desconocido");
       return;
     }
     setResult(data);
@@ -71,7 +75,10 @@ export function CustomerVisitsLookup() {
                 <div>
                   <h2 className="text-xl font-semibold">{result.customer.name}</h2>
                   <p className="text-sm text-[var(--text-muted)]">Total de atenciones: {result.customer.totalVisits}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Progreso: {result.customer.progressToNextReward} / 6</p>
+                  <p className="text-sm text-[var(--text-muted)]">Recompensas disponibles: {result.customer.availableRewards}</p>
                   <p className="text-sm text-[var(--text-muted)]">Ultima atencion: {result.customer.lastVisitAt ? new Date(result.customer.lastVisitAt).toLocaleDateString("es-PE") : "Sin registro"}</p>
+                  <p className="mt-2 text-sm text-[var(--gold-soft)]">Cada 6 servicios puedes reclamar un corte clasico o un vale de S/30.</p>
                 </div>
               </div>
             </article>

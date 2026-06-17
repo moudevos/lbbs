@@ -35,17 +35,20 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const date = searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
+  const fromDate = searchParams.get("from") ?? date;
+  const toDate = searchParams.get("to") ?? date;
   const status = searchParams.get("status");
   const branchId = searchParams.get("branch_id") ?? searchParams.get("branchId");
   const barberId = searchParams.get("barberId");
-  const range = dateRangeForDay(date);
+  const fromRange = dateRangeForDay(fromDate);
+  const toRange = dateRangeForDay(toDate);
   const admin = createAdminClient();
 
   let query = admin
     .from("reservations")
-    .select("id,status,source,starts_at,ends_at,price,observations,branches(name,phone),customers(full_name,phone),services(name),employees(first_name,last_name)")
-    .gte("starts_at", range.from)
-    .lte("starts_at", range.to)
+    .select("id,branch_id,service_id,employee_id,status,source,starts_at,ends_at,price,observations,branches(name,phone),customers(full_name,phone),services(name),employees(first_name,last_name),service_orders(id)")
+    .gte("starts_at", fromRange.from)
+    .lte("starts_at", toRange.to)
     .order("starts_at", { ascending: true });
 
   if (status) query = query.eq("status", status);
@@ -117,6 +120,22 @@ export async function POST(request: NextRequest) {
 
   if (service.branch_id && service.branch_id !== branchId) {
     return NextResponse.json({ error: "Servicio fuera de la sede seleccionada" }, { status: 400 });
+  }
+
+  if (body.employeeId) {
+    const { data: barber, error: barberError } = await admin
+      .from("employees")
+      .select("id,branch_id,is_active,role")
+      .eq("id", body.employeeId)
+      .maybeSingle();
+
+    if (barberError || !barber) return NextResponse.json({ error: barberError?.message ?? "Barbero no encontrado" }, { status: 404 });
+    if (barber.role !== "barbero" || !barber.is_active) {
+      return NextResponse.json({ error: "Selecciona un barbero activo" }, { status: 400 });
+    }
+    if (barber.branch_id !== branchId) {
+      return NextResponse.json({ error: "El barbero no pertenece a la sede de la reserva" }, { status: 400 });
+    }
   }
 
   const isCustom = service.sku === "CUSTOM" || Boolean(body.customServiceName);
@@ -202,6 +221,7 @@ export async function POST(request: NextRequest) {
       customer_reused: !customerResult.created,
       customer_name_differs: customerResult.nameDiffers,
       employee_id: body.employeeId || null,
+      created_without_barber: !body.employeeId,
       price,
       overlap_warning: overlapWarning
     },

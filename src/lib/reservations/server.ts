@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizePhone } from "@/lib/customers/phone";
 import { dateRangeForDay, overlaps } from "@/lib/reservations/time";
+import { syncRewardAccount } from "@/lib/rewards/server";
 
 type AdminClient = SupabaseClient<any, "public", any>;
 
@@ -134,5 +135,6 @@ export async function countReservationVisitOnce(admin: AdminClient, reservationI
     .eq("id", reservationId)
     .is("visit_counted_at", null);
 
+  if (!updateError) await syncRewardAccount(admin, reservation.customer_id);
   return { counted: !updateError, error: updateError?.message };
 }

@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         .from("reservations")
         .select("starts_at,ends_at")
         .eq("employee_id", employeeId)
-        .eq("status", "confirmado")
+        .in("status", ["confirmado", "atendido"])
         .gte("starts_at", range.from)
         .lte("starts_at", range.to)
     : { data: [], error: null };

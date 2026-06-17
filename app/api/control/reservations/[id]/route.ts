@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
 import { addMinutes, toLocalDateTime } from "@/lib/reservations/time";
 import type { ReservationStatus } from "@/lib/reservations/types";
-import { assertReservationCanBeConfirmed, countReservationVisitOnce } from "@/lib/reservations/server";
+import { assertReservationCanBeConfirmed } from "@/lib/reservations/server";
 
 type UpdateReservationBody = {
   status?: ReservationStatus;
@@ -66,12 +66,31 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!allowedStatuses.includes(body.status)) {
       return NextResponse.json({ error: "Estado invalido" }, { status: 400 });
     }
+    if (body.status === "atendido") {
+      return NextResponse.json({ error: "Usa la accion Confirmar atencion para marcar una reserva como atendida" }, { status: 400 });
+    }
     patch.status = body.status;
   }
 
   if (body.employeeId !== undefined) patch.employee_id = body.employeeId || null;
   if (body.price !== undefined) patch.price = body.price;
   if (body.observations !== undefined) patch.observations = body.observations;
+
+  if (newEmployeeId) {
+    const { data: barber, error: barberError } = await admin
+      .from("employees")
+      .select("id,branch_id,is_active,role")
+      .eq("id", newEmployeeId)
+      .maybeSingle();
+
+    if (barberError || !barber) return NextResponse.json({ error: barberError?.message ?? "Barbero no encontrado" }, { status: 404 });
+    if (barber.role !== "barbero" || !barber.is_active) {
+      return NextResponse.json({ error: "Selecciona un barbero activo" }, { status: 400 });
+    }
+    if (barber.branch_id !== reservation.branch_id) {
+      return NextResponse.json({ error: "El barbero no pertenece a la sede de la reserva" }, { status: 400 });
+    }
+  }
 
   if (body.date && body.time) {
     const duration = Array.isArray(reservation.services)
@@ -118,25 +137,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     tableName: "reservations",
     recordId: updated.id,
     previousData: reservation as unknown as Record<string, unknown>,
-    newData: patch,
+    newData: {
+      ...patch,
+      confirmed_without_barber: body.status === "confirmado" && !newEmployeeId
+    },
     ipAddress: request.headers.get("x-forwarded-for"),
     userAgent: request.headers.get("user-agent")
   });
-
-  if (body.status === "atendido" && reservation.status !== "atendido") {
-    const counted = await countReservationVisitOnce(admin, params.id);
-    await writeAuditLog(admin, {
-      actorUserId: actor.userId,
-      actorRole: actor.role,
-      actorBranchId: actor.branchId,
-      eventType: "update",
-      tableName: "customer_visit_stats",
-      recordId: params.id,
-      newData: { reservation_id: params.id, counted: counted.counted, error: counted.error ?? null },
-      ipAddress: request.headers.get("x-forwarded-for"),
-      userAgent: request.headers.get("user-agent")
-    });
-  }
 
   return NextResponse.json({ ok: true });
 }

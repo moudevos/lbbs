@@ -27,6 +27,7 @@ export function CrudManager({ module }: { module: Module }) {
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+  const [view, setView] = useState<"cards" | "table">("cards");
 
   async function load() {
     setLoading(true);
@@ -123,6 +124,10 @@ export function CrudManager({ module }: { module: Module }) {
         <div className="flex flex-wrap gap-2">
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={load}>Buscar</button>
+          <div className="inline-flex rounded-lg border border-[var(--border-soft)] p-1">
+            <button className={`rounded-md px-3 py-1 text-sm ${view === "cards" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("cards")}>Cards</button>
+            <button className={`rounded-md px-3 py-1 text-sm ${view === "table" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("table")}>Tabla</button>
+          </div>
           {canMutate ? <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-3 py-2 font-semibold text-black" onClick={() => setEditing(blank())}><Plus size={16} /> Nuevo</button> : null}
         </div>
       </div>
@@ -130,24 +135,24 @@ export function CrudManager({ module }: { module: Module }) {
       {editing ? <Editor module={module} row={editing} branches={branches} saving={saving} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} /> : null}
       {loading ? <TableSkeleton /> : null}
       {!loading && rows.length === 0 ? <EmptyState /> : null}
-      <div className="grid gap-2">
+      <div className={view === "cards" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "grid gap-2"}>
         {rows.map((row) => (
-          <article key={row.id} className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <article key={row.id} className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-3">
+            <div className={view === "cards" ? "flex h-full flex-col justify-between gap-3" : "flex flex-col gap-3 md:flex-row md:items-center md:justify-between"}>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   {row.code || row.sku ? <span className="text-sm text-[var(--gold-soft)]">{row.code ?? row.sku}</span> : null}
                   {row.role ? <RoleBadge role={row.role} /> : null}
                   <StatusBadge active={row.is_active} />
                 </div>
-                <h2 className="mt-2 text-lg font-semibold">{row.name ?? row.full_name ?? `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim()}</h2>
+                <h2 className="mt-2 text-base font-semibold">{row.name ?? row.full_name ?? `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim()}</h2>
                 <p className="text-sm text-[var(--text-muted)]">{describeRow(module, row)}</p>
                 {module === "customers" ? <CustomerStats row={row} /> : null}
               </div>
               <div className="flex flex-wrap gap-2">
-                {canMutate ? <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={() => setEditing(fromRow(row))}>Editar</button> : null}
-                {canMutate && module === "employees" ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={() => resetPassword(row.id)}><RotateCcw size={16} /> Reset</button> : null}
-                {canMutate ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-red-200" onClick={() => deactivate(row.id)}><Trash2 size={16} /> Desactivar</button> : null}
+                {canMutate ? <button className="rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setEditing(fromRow(row))}>Editar</button> : null}
+                {canMutate && module === "employees" ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => resetPassword(row.id)}><RotateCcw size={14} /> Reset</button> : null}
+                {canMutate ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-red-200" onClick={() => deactivate(row.id)}><Trash2 size={14} /> Desactivar</button> : null}
               </div>
             </div>
           </article>
@@ -196,9 +201,11 @@ function describeRow(module: Module, row: Row) {
 
 function CustomerStats({ row }: { row: Row }) {
   const stats = Array.isArray(row.customer_visit_stats) ? row.customer_visit_stats[0] : row.customer_visit_stats;
+  const rewards = Array.isArray(row.customer_reward_accounts) ? row.customer_reward_accounts[0] : row.customer_reward_accounts;
   return (
     <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
       <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">Atenciones: {stats?.total_visits ?? 0}</span>
+      <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">Rewards: {rewards?.available_rewards ?? 0}</span>
       <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">Ultima atencion: {stats?.last_visit_at ? new Date(stats.last_visit_at).toLocaleDateString("es-PE") : "Sin registro"}</span>
     </div>
   );

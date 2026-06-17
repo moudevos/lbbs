@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (!context.ok) return context.error;
   const q = request.nextUrl.searchParams.get("q")?.trim();
   const branchId = request.nextUrl.searchParams.get("branch_id") ?? request.nextUrl.searchParams.get("branchId");
-  let query = context.admin.from("customers").select("id,phone,normalized_phone,full_name,notes,branch_id,is_active,created_at,branches(name),customer_visit_stats(total_visits,last_visit_at)").order("created_at", { ascending: false });
+  let query = context.admin.from("customers").select("id,phone,normalized_phone,full_name,notes,branch_id,is_active,created_at,branches(name),customer_visit_stats(total_visits,last_visit_at),customer_reward_accounts(available_rewards,earned_rewards,redeemed_rewards)").order("created_at", { ascending: false });
   const scope = resolveBranchScope(context.employee, branchId);
   if (context.employee.role === "admin" && scope.mode === "branch") query = query.eq("branch_id", scope.branchId);
   if (context.employee.role === "recepcion") query = query.eq("branch_id", context.employee.branchId);

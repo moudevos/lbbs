@@ -44,6 +44,20 @@ export async function POST(request: NextRequest) {
   let overlapWarning = false;
 
   if (body.employeeId) {
+    const { data: barber, error: barberError } = await admin
+      .from("employees")
+      .select("id,branch_id,is_active,role")
+      .eq("id", body.employeeId)
+      .maybeSingle();
+
+    if (barberError || !barber) return NextResponse.json({ error: barberError?.message ?? "Barbero no encontrado" }, { status: 404 });
+    if (barber.role !== "barbero" || !barber.is_active) {
+      return NextResponse.json({ error: "Selecciona un barbero activo" }, { status: 400 });
+    }
+    if (barber.branch_id !== body.branchId) {
+      return NextResponse.json({ error: "El barbero no pertenece a la sede seleccionada" }, { status: 400 });
+    }
+
     const { data: existing, error: existingError } = await admin
       .from("reservations")
       .select("starts_at,ends_at,status")
@@ -107,7 +121,7 @@ export async function POST(request: NextRequest) {
     eventType: "create",
     tableName: "reservations",
     recordId: reservation.id,
-    newData: { source: "publico", status: "pendiente", overlap_warning: overlapWarning, customer_created: customerResult.created },
+    newData: { source: "publico", status: "pendiente", employee_id: body.employeeId || null, created_without_barber: !body.employeeId, overlap_warning: overlapWarning, customer_created: customerResult.created },
     ipAddress: request.headers.get("x-forwarded-for"),
     userAgent: request.headers.get("user-agent")
   });

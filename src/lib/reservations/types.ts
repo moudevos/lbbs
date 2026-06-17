@@ -29,10 +29,14 @@ export type ReservationSummary = {
   price: number | null;
   observations: string | null;
   branch: string;
+  branchId: string;
   branchPhone: string | null;
   customer: string;
   customerPhone: string;
   service: string;
+  serviceId: string | null;
   barber: string | null;
+  barberId: string | null;
   whatsappUrl: string;
+  serviceOrderId?: string | null;
 };

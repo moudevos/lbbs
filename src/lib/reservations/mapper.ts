@@ -5,6 +5,9 @@ type ReservationRow = {
   id: string;
   status: ReservationSummary["status"];
   source: string;
+  branch_id: string;
+  service_id: string | null;
+  employee_id: string | null;
   starts_at: string;
   ends_at: string;
   price: number | null;
@@ -13,6 +16,7 @@ type ReservationRow = {
   customers?: { full_name: string | null; phone: string | null } | { full_name: string | null; phone: string | null }[] | null;
   services?: { name: string | null } | { name: string | null }[] | null;
   employees?: { first_name: string | null; last_name: string | null } | { first_name: string | null; last_name: string | null }[] | null;
+  service_orders?: { id: string | null } | { id: string | null }[] | null;
 };
 
 function first<T>(value: T | T[] | null | undefined) {
@@ -24,6 +28,7 @@ export function mapReservation(row: ReservationRow, template?: string | null): R
   const customer = first(row.customers);
   const service = first(row.services);
   const employee = first(row.employees);
+  const serviceOrder = first(row.service_orders);
   const barber = employee ? `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim() : null;
   const branchName = branch?.name ?? "Sede";
   const customerName = customer?.full_name ?? "Cliente";
@@ -38,11 +43,15 @@ export function mapReservation(row: ReservationRow, template?: string | null): R
     price: row.price,
     observations: row.observations,
     branch: branchName,
+    branchId: row.branch_id,
     branchPhone: branch?.phone ?? null,
     customer: customerName,
     customerPhone: customer?.phone ?? "",
     service: serviceName,
+    serviceId: row.service_id,
     barber,
+    barberId: row.employee_id,
+    serviceOrderId: serviceOrder?.id ?? null,
     whatsappUrl: buildWhatsAppUrl({
       phone: customer?.phone ?? branch?.phone ?? null,
       template,

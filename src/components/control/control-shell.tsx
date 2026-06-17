@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CalendarCheck, CalendarDays, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
+import { Award, BarChart3, CalendarCheck, CalendarDays, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
 import type { CurrentEmployee } from "@/lib/auth/types";
 import { getModulesForRole } from "@/lib/auth/permissions";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -21,6 +21,11 @@ const icons = {
   Empleados: Users,
   Clientes: UserRound,
   Servicios: Scissors,
+  Atenciones: ReceiptText,
+  Caja: ReceiptText,
+  Productos: ReceiptText,
+  Produccion: BarChart3,
+  Bonos: Award,
   Configuracion: Settings,
   Auditoria: ShieldCheck,
   "Mis servicios/cortes": ReceiptText

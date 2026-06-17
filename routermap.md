@@ -574,6 +574,14 @@ Archivos sugeridos:
 * `supabase/sql/005_rls.sql`
 * `supabase/sql/006_seed.sql`
 * `supabase/sql/007_storage.sql`
+* `supabase/sql/008_auth_rls_fixes.sql`
+* `supabase/sql/009_first_admin_template.sql`
+* `supabase/sql/010_reservations_agenda.sql`
+* `supabase/sql/011_crud_modules_fixes.sql`
+* `supabase/sql/012_employee_onboarding_rewards.sql`
+* `supabase/sql/013_services_cash_rewards_public_agenda.sql`
+* `supabase/sql/014_products_attentions_cash.sql`
+* `supabase/sql/015_branch_product_stock_dashboard.sql`
 
 Resultado:
 

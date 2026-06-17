@@ -6,10 +6,15 @@
   --bg-main: #070707;
   --bg-panel: #121212;
   --gold: #d4af37;
+  --gold-bright: #f5d76e;
   --gold-soft: #f4de8a;
+  --gold-deep: #b8902a;
   --text-main: #f4f1e8;
   --text-muted: #a7a39a;
+  --text-faint: #6f6b62;
   --border-soft: rgba(212, 175, 55, 0.18);
+  --border-strong: rgba(212, 175, 55, 0.55);
+  --whatsapp: #4ade80;
 }
 
 html, body {
@@ -28,7 +33,189 @@ body {
   border: 1px solid var(--border-soft);
 }
 
+/* ===== Landing: marquees continuos ===== */
+@keyframes marquee-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes marquee-right {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+.marquee {
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* Pausa al pasar el cursor sobre el carrusel */
+.marquee-pause:hover .marquee {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation: none !important;
+  }
+}
+
 .glass-panel {
   background: linear-gradient(180deg, rgba(18,18,18,0.96), rgba(10,10,10,0.94));
   backdrop-filter: blur(14px);
+}
+
+/* ===== Reservas: marca y wizard ===== */
+
+.text-gold-gradient {
+  background: linear-gradient(180deg, #fbe6a4 0%, var(--gold) 55%, var(--gold-deep) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-gold {
+  background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
+  color: #1a1407;
+  box-shadow: 0 10px 30px -10px rgba(212, 175, 55, 0.65);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-gold:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow: 0 14px 36px -10px rgba(212, 175, 55, 0.8);
+}
+.btn-gold:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn-gold:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* Tarjetas seleccionables (sede / servicio / barbero) */
+.option-card {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, rgba(28, 24, 14, 0.55), rgba(14, 13, 10, 0.85));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease, background 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+.option-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+.option-card:active {
+  transform: translateY(0);
+}
+.option-card[data-selected="true"] {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(56, 46, 18, 0.7), rgba(20, 17, 9, 0.9));
+  box-shadow: 0 0 0 1px var(--gold), 0 16px 40px -18px rgba(212, 175, 55, 0.7);
+}
+
+.option-check {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: inline-flex;
+  height: 1.6rem;
+  width: 1.6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--gold);
+  color: #1a1407;
+}
+
+/* Chips de horario disponible */
+.slot-chip {
+  border-radius: 0.7rem;
+  border: 1px solid var(--border-soft);
+  background: rgba(20, 18, 12, 0.7);
+  color: var(--text-main);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.slot-chip:hover {
+  border-color: var(--border-strong);
+}
+.slot-chip[data-selected="true"] {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #1a1407;
+  font-weight: 700;
+}
+
+/* Inputs del paso de datos */
+.field-input {
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border-soft);
+  background: rgba(12, 11, 8, 0.85);
+  padding: 0.85rem 1rem;
+  color: var(--text-main);
+  color-scheme: dark;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field-input::placeholder {
+  color: var(--text-faint);
+}
+.field-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18);
+}
+
+.field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-soft);
+}
+
+/* Barra de progreso del wizard */
+.progress-seg {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(212, 175, 55, 0.16);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.progress-seg[data-on="true"] {
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+  box-shadow: 0 0 14px -2px rgba(212, 175, 55, 0.7);
+}
+
+/* ===== SweetAlert2 tematizado ===== */
+.lbbs-swal-popup {
+  border-radius: 1.25rem !important;
+  border: 1px solid var(--border-strong) !important;
+  background: linear-gradient(180deg, #161410, #0c0b08) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(212, 175, 55, 0.12) !important;
+}
+.lbbs-swal-title {
+  color: var(--text-main) !important;
+  font-weight: 700 !important;
+}
+.lbbs-swal-text {
+  color: var(--text-muted) !important;
+}
+.lbbs-swal-confirm {
+  border-radius: 0.85rem !important;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold)) !important;
+  color: #1a1407 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 10px 30px -12px rgba(212, 175, 55, 0.7) !important;
+}
+.lbbs-swal-confirm:focus {
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.35) !important;
+}
+.lbbs-swal-cancel {
+  border-radius: 0.85rem !important;
+  background: transparent !important;
+  border: 1px solid var(--border-strong) !important;
+  color: var(--text-main) !important;
+  font-weight: 600 !important;
 }
