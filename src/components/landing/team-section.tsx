@@ -8,22 +8,24 @@ import type { LandingTeamMember } from "@/lib/public/landing-data";
 import { trackEvent } from "@/lib/analytics/track-event";
 import { useRef } from "react";
 import { CarouselNavigation } from "./carousel-navigation";
+import { useLandingLanguage } from "./landing-language-provider";
 
 export function TeamSection({ team }: { team: LandingTeamMember[] }) {
+  const { t } = useLandingLanguage();
   const carouselRef = useRef<HTMLDivElement>(null);
 
   return (
     <section id="equipo" className="relative scroll-mt-24 bg-[#071013] py-14 md:py-16">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mb-14">
-          <LandingSectionTitle eyebrow="Nuestro equipo" title="Barberos en Iquitos" description="Conoce a los barberos de La Bajadita: especialidades, apodos y sedes para reservar tu corte." />
+          <LandingSectionTitle eyebrow={t("Nuestro equipo", "Our team")} title={t("Barberos en Iquitos", "Barbers in Iquitos")} description={t("Conoce a los barberos de La Bajadita: especialidades, apodos y sedes para reservar tu corte.", "Meet La Bajadita's barbers, their specialties, nicknames and locations before booking your haircut.")} />
         </div>
 
         {team.length === 0 ? <Message text="Nuestro equipo estará disponible pronto. Reserva tu cita y te asignaremos un especialista según tu servicio." /> : null}
         {team.length > 0 ? (
           <>
           <div className="mb-4">
-            <CarouselNavigation carouselRef={carouselRef} label="barberos" />
+            <CarouselNavigation carouselRef={carouselRef} label={t("barberos", "barbers")} />
           </div>
           <div ref={carouselRef} className="no-scrollbar -mx-6 flex snap-x gap-5 overflow-x-auto overflow-y-hidden px-6 pb-3 lg:mx-0 lg:px-0">
             {team.map((member) => (
@@ -42,7 +44,7 @@ export function TeamSection({ team }: { team: LandingTeamMember[] }) {
                   <p className="mt-3 text-sm text-[var(--gold-soft)]">{member.specialty}</p>
                   <p className="mt-3 flex items-center justify-center gap-2 text-xs text-[var(--text-faint)]"><MapPin size={14} className="text-[var(--gold-soft)]" /> {member.branchName ?? "La Bajadita Barber Studio"}</p>
                   <Link href="/reservar" onClick={() => trackEvent("team_barber_reserve_click", { barber_id: member.id, barber_name: member.nickname || member.fullName })} className="landing-secondary-button mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium">
-                    <CalendarCheck size={15} /> Reservar con este barbero
+                    <CalendarCheck size={15} /> {t("Reservar con este barbero", "Book with this barber")}
                   </Link>
                 </div>
               </article>

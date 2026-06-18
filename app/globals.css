@@ -76,6 +76,173 @@
   color: var(--landing-gold-soft);
 }
 
+.landing-service-card {
+  --service-accent: var(--landing-gold);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--landing-border);
+  border-radius: 1.5rem;
+  background: var(--landing-panel);
+  color: var(--landing-text);
+  transition: transform 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+}
+
+.landing-service-card::before,
+.landing-service-card::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  transition: inset 0.45s ease, transform 0.45s ease;
+}
+
+.landing-service-card::before {
+  inset: -8px 42px;
+  border-bottom: 3px solid var(--service-accent);
+  border-top: 3px solid var(--service-accent);
+  transform: skewY(-8deg);
+}
+
+.landing-service-card::after {
+  inset: 42px -8px;
+  border-left: 3px solid var(--service-accent);
+  border-right: 3px solid var(--service-accent);
+  transform: skewX(-8deg);
+}
+
+.landing-service-card:hover::before,
+.landing-service-card:hover::after {
+  inset: -8px;
+  transform: skew(0);
+}
+
+.landing-service-card-icon {
+  color: var(--service-accent);
+  background: var(--landing-panel);
+  border: 2px solid var(--service-accent);
+  transition: color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease;
+}
+
+.landing-service-card:hover .landing-service-card-icon {
+  color: #10100d;
+  background: var(--service-accent);
+  box-shadow: 0 0 0 5px var(--landing-panel), 0 0 0 360px var(--service-accent);
+}
+
+.landing-service-card-content {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-service-card-content h3,
+.landing-service-card-content p {
+  transition: color 0.45s ease;
+}
+
+.landing-service-card:hover .landing-service-card-content h3,
+.landing-service-card:hover .landing-service-card-content p {
+  color: #10100d;
+}
+
+.landing-service-card-button {
+  position: relative;
+  z-index: 2;
+  border: 2px solid var(--service-accent);
+  border-radius: 9999px;
+  color: #10100d;
+  background: var(--service-accent);
+  transition: color 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+}
+
+.landing-service-card:hover .landing-service-card-button {
+  color: var(--service-accent);
+  background: var(--landing-panel);
+}
+
+.landing-service-card {
+  --service-accent: var(--landing-gold);
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--landing-border);
+  border-radius: 1.5rem;
+  background: var(--landing-panel);
+  color: var(--landing-text);
+  transition: transform 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+}
+
+.landing-service-card::before,
+.landing-service-card::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  transition: inset 0.45s ease, transform 0.45s ease;
+}
+
+.landing-service-card::before {
+  inset: -8px 42px;
+  border-bottom: 3px solid var(--service-accent);
+  border-top: 3px solid var(--service-accent);
+  transform: skewY(8deg);
+}
+
+.landing-service-card::after {
+  inset: 42px -8px;
+  border-left: 3px solid var(--service-accent);
+  border-right: 3px solid var(--service-accent);
+  transform: skewX(8deg);
+}
+
+.landing-service-card:hover::before,
+.landing-service-card:hover::after {
+  inset: -8px;
+  transform: skew(0);
+}
+
+.landing-service-card-icon {
+  color: var(--service-accent);
+  background: var(--landing-panel);
+  border: 2px solid var(--service-accent);
+  transition: color 0.45s ease, background 0.45s ease, box-shadow 0.45s ease;
+}
+
+.landing-service-card:hover .landing-service-card-icon {
+  color: #10100d;
+  background: var(--service-accent);
+  box-shadow: 0 0 0 5px var(--landing-panel), 0 0 0 360px var(--service-accent);
+}
+
+.landing-service-card-content {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-service-card-content h3,
+.landing-service-card-content p {
+  transition: color 0.45s ease;
+}
+
+.landing-service-card:hover .landing-service-card-content h3,
+.landing-service-card:hover .landing-service-card-content p {
+  color: #10100d;
+}
+
+.landing-service-card-button {
+  position: relative;
+  z-index: 2;
+  border: 2px solid var(--service-accent);
+  border-radius: 9999px;
+  color: #10100d;
+  background: var(--service-accent);
+  transition: color 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+}
+
+.landing-service-card:hover .landing-service-card-button {
+  color: var(--service-accent);
+  background: var(--landing-panel);
+}
+
 .landing-hero-image {
   object-position: var(--desktop-object-position, center);
 }

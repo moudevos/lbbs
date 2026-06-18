@@ -7,6 +7,7 @@ import { LandingSectionTitle } from "./landing-section-title";
 import { WorkDetailModal } from "./work-detail-modal";
 import type { LandingGalleryItem } from "@/lib/public/landing-data";
 import { trackEvent } from "@/lib/analytics/track-event";
+import { useLandingLanguage } from "./landing-language-provider";
 
 const VISIBLE_COUNT = 5;
 const ROTATION_MS = 60000;
@@ -37,6 +38,7 @@ const COLLAGE_LAYOUTS = [
 const areas = ["one", "two", "three", "four", "five"];
 
 export function WorkCollage({ items, socialLinks, phones }: { items: LandingGalleryItem[]; socialLinks: string[]; phones: string[] }) {
+  const { t } = useLandingLanguage();
   const [selected, setSelected] = useState<LandingGalleryItem | null>(null);
   const [rotation, setRotation] = useState(0);
 
@@ -64,7 +66,7 @@ export function WorkCollage({ items, socialLinks, phones }: { items: LandingGall
     <section id="trabajo" className="relative scroll-mt-24 overflow-hidden bg-[#050505] py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mb-12 max-w-3xl">
-          <LandingSectionTitle align="left" eyebrow="Nuestro trabajo" title="Cortes que hablan por ti" description="Cada acabado refleja precision, estilo y la experiencia de una barberia premium en Iquitos." />
+          <LandingSectionTitle align="left" eyebrow={t("Nuestro trabajo", "Our work")} title={t("Cortes que hablan por ti", "Haircuts that speak for you")} description={t("Cada acabado refleja precisión, estilo y la experiencia de una barbería premium en Iquitos.", "Every finish reflects precision, style and the experience of a premium barbershop in Iquitos.")} />
         </div>
 
         {!items.length ? <GalleryEmpty socialLinks={socialLinks} phones={phones} /> : (
@@ -103,10 +105,11 @@ export function WorkCollage({ items, socialLinks, phones }: { items: LandingGall
 const mobileHeights = ["h-[72vw]", "h-[62vw]", "h-[68vw]", "h-[76vw]", "h-[64vw]"];
 
 function GalleryCard({ item, onOpen, className = "" }: { item: LandingGalleryItem; onOpen: () => void; className?: string }) {
+  const { t } = useLandingLanguage();
   const [imageError, setImageError] = useState(false);
 
   return (
-    <button type="button" onClick={onOpen} className={`group relative overflow-hidden rounded-[1.4rem] bg-[#111] text-left transition duration-500 ${className}`} aria-label={`Ver ${item.title}`}>
+    <button type="button" onClick={onOpen} className={`group relative overflow-hidden rounded-[1.4rem] bg-[#111] text-left transition duration-500 ${className}`} aria-label={`${t("Ver", "View")} ${item.title}`}>
       <span aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(234,157,77,0.22),transparent_60%),linear-gradient(160deg,#162020,#050A0D)]" />
       {!imageError ? (
         <Image
@@ -140,6 +143,7 @@ function GalleryPlaceholder({ className }: { className: string }) {
 }
 
 function GalleryEmpty({ socialLinks, phones }: { socialLinks: string[]; phones: string[] }) {
+  const { t } = useLandingLanguage();
   const links = [
     ...socialLinks.map((href) => ({ href, label: href.includes("instagram") ? "Instagram" : href.includes("tiktok") ? "TikTok" : "Facebook", icon: href.includes("instagram") ? Instagram : href.includes("tiktok") ? Music2 : Facebook })),
     ...(phones[0] ? [{ href: `https://wa.me/51${phones[0].replace(/\D/g, "")}`, label: "WhatsApp", icon: MessageCircle }] : [])
@@ -150,8 +154,8 @@ function GalleryEmpty({ socialLinks, phones }: { socialLinks: string[]; phones: 
         {areas.map((area, index) => <div key={area} className={`rounded-2xl bg-[radial-gradient(circle_at_30%_25%,rgba(234,157,77,0.18),transparent_55%),#111] ${index === 0 ? "col-span-2" : ""}`} />)}
       </div>
       <div className="flex flex-col justify-center">
-        <h3 className="text-2xl font-semibold text-white">Nuevos estilos en camino</h3>
-        <p className="mt-3 text-[var(--text-muted)]">Muy pronto compartiremos nuestros trabajos recientes. Siguenos en redes para ver mas cortes y estilos.</p>
+        <h3 className="text-2xl font-semibold text-white">{t("Nuevos estilos en camino", "New styles coming soon")}</h3>
+        <p className="mt-3 text-[var(--text-muted)]">{t("Muy pronto compartiremos nuestros trabajos recientes. Síguenos en redes para ver más cortes y estilos.", "We will soon share our latest work. Follow us on social media to see more haircuts and styles.")}</p>
         <div className="mt-5 flex flex-wrap gap-2">{links.map(({ href, label, icon: Icon }) => <a key={href} href={href} target="_blank" rel="noreferrer" onClick={() => trackEvent("social_click", { network: label })} className="landing-secondary-button inline-flex items-center gap-2 px-4 py-2 text-sm"><Icon size={15} /> {label}</a>)}</div>
       </div>
     </div>

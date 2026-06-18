@@ -12,6 +12,7 @@ import { LocationHours } from "@/components/landing/location-hours";
 import { PageVisibilityTitle } from "@/components/landing/page-visibility-title";
 import { getLandingData } from "@/lib/public/landing-data";
 import type { Metadata } from "next";
+import { LandingLanguageProvider } from "@/components/landing/landing-language-provider";
 
 export const revalidate = 300;
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default async function HomePage() {
   const baseUrl = appUrl();
 
   return (
+    <LandingLanguageProvider>
     <main className="landing-public min-h-screen space-y-[5px] overflow-x-hidden bg-[var(--landing-bg)]">
       <PageVisibilityTitle />
       <LandingJsonLd data={landingData} appUrl={baseUrl} />
@@ -41,5 +43,6 @@ export default async function HomePage() {
       <LocationHours branches={landingData.branches} mainPhone={landingData.mainContact.phone} />
       <LandingFooter branches={landingData.branches} settings={landingData.settings} mainPhone={landingData.mainContact.phone} />
     </main>
+    </LandingLanguageProvider>
   );
 }

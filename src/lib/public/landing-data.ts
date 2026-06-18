@@ -13,6 +13,7 @@ export type LandingService = {
   price: number | null;
   description: string | null;
   branchName: string | null;
+  branchCode: string | null;
 };
 
 export type LandingTeamMember = {
@@ -69,12 +70,6 @@ export type LandingData = {
   mainContact: PublicContact;
 };
 
-const fallbackServices: LandingService[] = [
-  { id: "fallback-classic-cut", branchId: null, name: "Corte clasico", durationMinutes: 30, price: null, description: "Corte clasico en Iquitos con acabado limpio y atencion personalizada.", branchName: "La Bajadita" },
-  { id: "fallback-fade", branchId: null, name: "Corte fade", durationMinutes: 45, price: null, description: "Fade profesional para quienes buscan precision, estilo y presencia.", branchName: "La Bajadita" },
-  { id: "fallback-beard", branchId: null, name: "Barba y perfilado", durationMinutes: 30, price: null, description: "Perfilado de barba y contornos con detalle profesional.", branchName: "La Bajadita" }
-];
-
 export async function getLandingData(): Promise<LandingData> {
   const admin = createAdminClient();
   const [services, team, reviews, branches, settings, gallery, mainContact] = await Promise.all([
@@ -88,7 +83,7 @@ export async function getLandingData(): Promise<LandingData> {
   ]);
 
   return {
-    services: services.length ? services : fallbackServices,
+    services,
     team,
     reviews,
     branches,
@@ -141,11 +136,12 @@ async function getGallery(admin: ReturnType<typeof createAdminClient>, limit = 2
 async function getServices(admin: ReturnType<typeof createAdminClient>) {
   const { data, error } = await admin
     .from("services")
-    .select("id,name,description,duration_minutes,price,branch_id,branches(name)")
+    .select("id,name,description,duration_minutes,price,branch_id,branches!inner(name,code)")
     .eq("is_active", true)
+    .eq("branches.code", "SED-002")
     .order("name");
 
-  if (error) return fallbackServices;
+  if (error) return [];
 
   return dedupeById(data ?? []).map((service) => {
     const branch = Array.isArray(service.branches) ? service.branches[0] : service.branches;
@@ -156,7 +152,8 @@ async function getServices(admin: ReturnType<typeof createAdminClient>) {
       description: service.description,
       durationMinutes: service.duration_minutes,
       price: service.price,
-      branchName: branch?.name ?? null
+      branchName: branch?.name ?? null,
+      branchCode: branch?.code ?? null
     };
   });
 }

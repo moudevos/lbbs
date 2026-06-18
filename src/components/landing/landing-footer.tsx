@@ -6,6 +6,7 @@ import { Facebook, Instagram, MapPin, MessageCircle, Music2 } from "lucide-react
 import type { LandingBranch, LandingSettings } from "@/lib/public/landing-data";
 import { trackEvent } from "@/lib/analytics/track-event";
 import { resolvePublicSocialLinks } from "@/lib/public/social-links";
+import { useLandingLanguage } from "./landing-language-provider";
 
 const navLinks = [
   { label: "Inicio", href: "#inicio" },
@@ -18,6 +19,7 @@ const navLinks = [
 const serviceLinks = ["Corte clásico", "Corte fade", "Barba", "Perfilado"];
 
 export function LandingFooter({ branches, settings, mainPhone }: { branches: LandingBranch[]; settings: LandingSettings; mainPhone: string | null }) {
+  const { t } = useLandingLanguage();
   const digits = mainPhone?.replace(/\D/g, "") ?? "";
   const resolved = resolvePublicSocialLinks(settings.socialLinks, digits ? `https://wa.me/${digits.startsWith("51") ? digits : `51${digits}`}` : "");
   const socials = [
@@ -35,31 +37,31 @@ export function LandingFooter({ branches, settings, mainPhone }: { branches: Lan
         <div>
           <Image src="/landing/logo-bajadita.png" alt="La Bajadita Barber Studio" width={190} height={74} className="h-14 w-auto object-contain" />
           <p className="mt-5 text-sm leading-relaxed text-[var(--text-muted)]">
-            La Bajadita Barber Studio es un espacio de barbería premium en Iquitos donde la técnica, la autenticidad y el detalle se unen para crear cortes con identidad.
+            {t("La Bajadita Barber Studio es un espacio de barbería premium en Iquitos donde la técnica, la autenticidad y el detalle se unen para crear cortes con identidad.", "La Bajadita Barber Studio is a premium barbershop in Iquitos where technique, authenticity and detail come together to create signature haircuts.")}
           </p>
           <p className="mt-4 text-xs font-semibold text-[var(--landing-gold-soft)]">#CristoVive</p>
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--landing-gold-soft)]">Navegación</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--landing-gold-soft)]">{t("Navegación", "Navigation")}</h2>
           <ul className="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
             {navLinks.map((link) => (
               <li key={link.href}>
-                {link.isRoute ? <Link href={link.href} className="transition-colors hover:text-[var(--landing-gold-soft)]">{link.label}</Link> : <a href={link.href} className="transition-colors hover:text-[var(--landing-gold-soft)]">{link.label}</a>}
+                {link.isRoute ? <Link href={link.href} className="transition-colors hover:text-[var(--landing-gold-soft)]">{footerNavLabel(link.href, t)}</Link> : <a href={link.href} className="transition-colors hover:text-[var(--landing-gold-soft)]">{footerNavLabel(link.href, t)}</a>}
               </li>
             ))}
           </ul>
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--landing-gold-soft)]">Servicios</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--landing-gold-soft)]">{t("Servicios", "Services")}</h2>
           <ul className="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
-            {serviceLinks.map((service) => <li key={service}>{service}</li>)}
+            {serviceLinks.map((service) => <li key={service}>{footerServiceLabel(service, t)}</li>)}
           </ul>
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--landing-gold-soft)]">Sedes y horarios</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--landing-gold-soft)]">{t("Sedes y horarios", "Locations and hours")}</h2>
           <ul className="mt-4 space-y-3 text-sm text-[var(--text-muted)]">
             {branches.length ? branches.map((branch) => (
               <li key={branch.id} className="flex items-start gap-2">
@@ -80,10 +82,32 @@ export function LandingFooter({ branches, settings, mainPhone }: { branches: Lan
 
       <div className="relative mt-10 border-t border-[var(--landing-border)] px-6 pt-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 text-xs text-[var(--text-faint)] md:flex-row md:items-center md:justify-between">
-          <p>© 2026 La Bajadita Barber Studio. Todos los derechos reservados.</p>
-          <p>Desarrollado por MouDevOS</p>
+          <p>© 2026 La Bajadita Barber Studio. {t("Todos los derechos reservados.", "All rights reserved.")}</p>
+          <p>{t("Desarrollado por MouDevOS", "Developed by MouDevOS")}</p>
         </div>
       </div>
     </footer>
   );
+}
+
+function footerNavLabel(href: string, t: (spanish: string, english: string) => string) {
+  const labels: Record<string, [string, string]> = {
+    "#inicio": ["Inicio", "Home"],
+    "#por-que-nosotros": ["Por qué nosotros", "Why us"],
+    "#servicios": ["Servicios", "Services"],
+    "#trabajo": ["Galería", "Gallery"],
+    "/reservar": ["Reservar", "Book"]
+  };
+  const label = labels[href] ?? [href, href];
+  return t(label[0], label[1]);
+}
+
+function footerServiceLabel(service: string, t: (spanish: string, english: string) => string) {
+  const labels: Record<string, string> = {
+    "Corte clásico": "Classic haircut",
+    "Corte fade": "Fade haircut",
+    Barba: "Beard grooming",
+    Perfilado: "Shaping"
+  };
+  return t(service, labels[service] ?? service);
 }

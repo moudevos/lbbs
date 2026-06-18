@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { LandingSectionTitle } from "./landing-section-title";
 import type { LandingReview } from "@/lib/public/landing-data";
 import { resolvePublicSocialLinks } from "@/lib/public/social-links";
+import { useLandingLanguage } from "./landing-language-provider";
 
 function Stars({ rating, centered = false }: { rating: number; centered?: boolean }) {
   const safeRating = Math.min(5, Math.max(0, Number(rating) || 0));
@@ -27,6 +28,7 @@ function ReviewCard({ review, onOpen }: { review: LandingReview; onOpen: () => v
 }
 
 export function TestimonialsMarquee({ reviews, socialLinks, mainPhone }: { reviews: LandingReview[]; socialLinks: string[]; mainPhone: string | null }) {
+  const { t } = useLandingLanguage();
   const [selected, setSelected] = useState<LandingReview | null>(null);
   const visibleReviews = reviews.slice(0, 10);
   const repeatedReviews = [...visibleReviews, ...visibleReviews];
@@ -37,7 +39,7 @@ export function TestimonialsMarquee({ reviews, socialLinks, mainPhone }: { revie
   return (
     <section id="comentarios" className="relative scroll-mt-24 overflow-hidden bg-[var(--landing-bg)] py-14 md:py-16">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-10 text-center"><LandingSectionTitle eyebrow="Testimonios" title="Clientes que recomiendan La Bajadita" description="Reseñas aprobadas de clientes reales que visitaron nuestra barbería en Iquitos." /></div>
+        <div className="mb-10 text-center"><LandingSectionTitle eyebrow={t("Testimonios", "Testimonials")} title={t("Clientes que recomiendan La Bajadita", "Clients who recommend La Bajadita")} description={t("Reseñas aprobadas de clientes reales que visitaron nuestra barbería en Iquitos.", "Approved reviews from real clients who visited our barbershop in Iquitos.")} /></div>
         {visibleReviews.length === 0 ? <Placeholder socialLinks={socialLinks} whatsapp={whatsapp} /> : null}
       </div>
       {visibleReviews.length > 0 && !canAnimate ? (
@@ -58,6 +60,7 @@ export function TestimonialsMarquee({ reviews, socialLinks, mainPhone }: { revie
 }
 
 function ReviewModal({ review, onClose }: { review: LandingReview | null; onClose: () => void }) {
+  const { language, t } = useLandingLanguage();
   useEffect(() => {
     if (!review) return;
     const previous = document.body.style.overflow;
@@ -81,17 +84,17 @@ function ReviewModal({ review, onClose }: { review: LandingReview | null; onClos
         <div className="mt-7 border-t border-[var(--landing-border)] pt-5">
           <p className="font-semibold text-white">{review.name || "Cliente La Bajadita"}</p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">{review.branchName ?? "La Bajadita Barber Studio"}</p>
-          <time dateTime={review.createdAt} className="mt-2 block text-xs text-[var(--text-faint)]">{formatReviewDate(review.createdAt)}</time>
+          <time dateTime={review.createdAt} className="mt-2 block text-xs text-[var(--text-faint)]">{formatReviewDate(review.createdAt, language)}</time>
         </div>
       </article>
     </div>
   );
 }
 
-function formatReviewDate(value: string) {
+function formatReviewDate(value: string, language: "es" | "en") {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
-  return new Intl.DateTimeFormat("es-PE", { day: "numeric", month: "long", year: "numeric" }).format(date);
+  if (Number.isNaN(date.getTime())) return language === "es" ? "Fecha no disponible" : "Date unavailable";
+  return new Intl.DateTimeFormat(language === "es" ? "es-PE" : "en-US", { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
 function Placeholder({ socialLinks, whatsapp }: { socialLinks: string[]; whatsapp: string }) {
