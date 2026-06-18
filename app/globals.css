@@ -116,6 +116,38 @@
   --border-strong: rgba(200, 168, 90, 0.52);
 }
 
+[data-control-color-mode="light"] {
+  --bg-main: #f4f1e8;
+  --bg-panel: #ffffff;
+  --text-main: #17140d;
+  --text-muted: #625c50;
+  --text-faint: #82796a;
+  --border-soft: rgba(106, 82, 18, 0.2);
+  --border-strong: rgba(151, 112, 8, 0.55);
+}
+
+.control-surface {
+  background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+}
+
+.control-surface-muted {
+  background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+}
+
+[data-control-color-mode="light"] .control-app [class*="bg-black"] {
+  background-color: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+}
+
+[data-control-color-mode="light"] .control-app [class*="text-white"] {
+  color: var(--text-main);
+}
+
+[data-control-color-mode="light"] .control-app input,
+[data-control-color-mode="light"] .control-app select,
+[data-control-color-mode="light"] .control-app textarea {
+  color-scheme: light;
+}
+
 html, body {
   min-height: 100%;
   background:
@@ -153,8 +185,24 @@ body {
   animation-play-state: paused;
 }
 
+@keyframes reviews-marquee-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 0.625rem)); }
+}
+
+.reviews-marquee {
+  animation: reviews-marquee-left 42s linear infinite;
+  will-change: transform;
+}
+
+.reviews-marquee-pause:hover .reviews-marquee,
+.reviews-marquee-pause:focus-within .reviews-marquee {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .marquee {
+  .marquee,
+  .reviews-marquee {
     animation: none !important;
   }
 }

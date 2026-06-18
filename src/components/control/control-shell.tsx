@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { Award, BarChart3, CalendarCheck, CalendarDays, ChevronDown, Gift, Images, MonitorSmartphone, MessageSquareText, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { CurrentEmployee } from "@/lib/auth/types";
 import { getModulesForRole } from "@/lib/auth/permissions";
-import { LogoutButton } from "@/components/auth/logout-button";
 import { NavigationLoadingProvider, useNavigationLoading } from "@/components/navigation/navigation-loading-provider";
 import { TopProgressBar } from "@/components/navigation/top-progress-bar";
 import { ModuleRouteSkeleton } from "@/components/navigation/module-route-skeleton";
@@ -14,6 +12,8 @@ import { RealtimeNotificationCenter } from "@/components/realtime/realtime-notif
 import { ControlThemeProvider } from "./control-theme-provider";
 import { ControlNavLink } from "./control-nav-link";
 import { BranchScopeSelector } from "./branch-scope-selector";
+import { UserAccountMenu } from "./user-account-menu";
+import type { RealtimeStatus } from "@/lib/realtime/realtime-client";
 
 const icons = {
   Dashboard: LayoutDashboard,
@@ -50,6 +50,7 @@ export function ControlShell({ employee, children }: { employee: CurrentEmployee
 
 function ControlShellContent({ employee, children }: { employee: CurrentEmployee; children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [syncState, setSyncState] = useState<{ status: RealtimeStatus; lastSyncAt: string | null }>({ status: "idle", lastSyncAt: null });
   const { isNavigating, targetPathname } = useNavigationLoading();
   const pathname = usePathname();
   const modules = getModulesForRole(employee.role);
@@ -76,7 +77,7 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
         </div>
       ) : null}
       {groupedModules.map((group) => (
-        <div key={group.title} className="rounded-xl border border-[var(--border-soft)] bg-black/25">
+        <div key={group.title} className="control-surface-muted rounded-xl border border-[var(--border-soft)]">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.16em] text-[var(--gold-soft)]"
@@ -99,17 +100,17 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
   );
 
   return (
-    <div className="h-screen overflow-hidden bg-[var(--bg-main)]">
+    <div className="control-app h-screen overflow-hidden bg-[var(--bg-main)]">
       <ControlThemeProvider />
       <TopProgressBar />
       <div className="flex h-[calc(100%-2px)]">
-        <aside className="hidden h-full w-72 shrink-0 overflow-y-auto border-r border-[var(--border-soft)] bg-black/70 p-4 lg:block">
+        <aside className="control-surface-muted hidden h-full w-72 shrink-0 overflow-y-auto border-r border-[var(--border-soft)] p-4 lg:block">
           <Brand />
           {nav}
         </aside>
 
         <div className={`fixed inset-0 z-40 bg-black/70 transition lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`} onClick={() => setMobileOpen(false)} />
-        <aside className={`fixed left-0 top-0 z-50 h-full w-72 border-r border-[var(--border-soft)] bg-black p-4 transition-transform duration-200 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <aside className={`control-surface fixed left-0 top-0 z-50 h-full w-72 border-r border-[var(--border-soft)] p-4 transition-transform duration-200 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="mb-4 flex items-center justify-between">
             <Brand />
             <button className="rounded-lg border border-[var(--border-soft)] p-2" onClick={() => setMobileOpen(false)}><X size={18} /></button>
@@ -118,7 +119,7 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="shrink-0 border-b border-[var(--border-soft)] bg-black/80 px-4 py-3 backdrop-blur md:px-6">
+          <header className="control-surface shrink-0 border-b border-[var(--border-soft)] px-4 py-3 backdrop-blur md:px-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <button className="rounded-lg border border-[var(--border-soft)] p-2 lg:hidden" onClick={() => setMobileOpen(true)}><Menu size={18} /></button>
@@ -130,9 +131,11 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <BranchScopeSelector role={employee.role} branchName={employee.branchName} />
-                <RealtimeNotificationCenter branchId={employee.role === "admin" ? null : employee.branchId} />
-                <Link href="/" className="rounded-lg gold-border px-4 py-2 text-sm">Inicio publico</Link>
-                <LogoutButton />
+                <RealtimeNotificationCenter
+                  branchId={employee.role === "admin" ? null : employee.branchId}
+                  onStatusChange={(status, lastSyncAt) => setSyncState((current) => ({ status, lastSyncAt: lastSyncAt ?? current.lastSyncAt }))}
+                />
+                <UserAccountMenu employee={employee} syncStatus={syncState.status} lastSyncAt={syncState.lastSyncAt} />
               </div>
             </div>
           </header>

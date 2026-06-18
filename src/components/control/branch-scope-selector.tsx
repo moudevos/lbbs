@@ -31,7 +31,7 @@ export function BranchScopeSelector({ role, branchName }: { role: AppRole; branc
     <label className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-muted)]">
       <Store size={16} />
       <select
-        className="bg-transparent text-white outline-none"
+        className="bg-transparent text-[var(--text-main)] outline-none"
         value={value}
         onChange={(event) => {
           setValue(event.target.value);
@@ -39,9 +39,9 @@ export function BranchScopeSelector({ role, branchName }: { role: AppRole; branc
           window.dispatchEvent(new CustomEvent("branch-scope-change", { detail: event.target.value }));
         }}
       >
-        <option className="bg-black" value="all">Todas las sedes</option>
+        <option className="bg-[var(--bg-panel)]" value="all">Todas las sedes</option>
         {branches.map((branch) => (
-          <option className="bg-black" key={branch.id} value={branch.id}>{branch.name}</option>
+          <option className="bg-[var(--bg-panel)]" key={branch.id} value={branch.id}>{branch.name}</option>
         ))}
       </select>
     </label>

@@ -39,6 +39,7 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(true);
+  const [optionsError, setOptionsError] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [step, setStep] = useState(1);
   const [showAllBranches, setShowAllBranches] = useState(false);
@@ -55,19 +56,36 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
   });
 
   useEffect(() => {
-    fetch("/api/public/reservation-options")
-      .then((response) => response.json())
-      .then((data) => {
-        setOptions(data);
+    const controller = new AbortController();
+    async function loadOptions() {
+      setLoadingOptions(true);
+      setOptionsError("");
+      try {
+        const response = await fetch("/api/public/reservation-options", { signal: controller.signal, cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "No se pudieron cargar las opciones");
+        const nextOptions: Options = {
+          branches: Array.isArray(data.branches) ? data.branches : [],
+          services: Array.isArray(data.services) ? data.services : [],
+          barbers: Array.isArray(data.barbers) ? data.barbers : [],
+          mainContact: data.mainContact
+        };
+        setOptions(nextOptions);
         // Si solo hay una sede, se preselecciona (igual que el diseno).
-        if (requestedBranchId && (data.branches ?? []).some((branch: BranchOption) => branch.id === requestedBranchId)) {
+        if (requestedBranchId && nextOptions.branches.some((branch) => branch.id === requestedBranchId)) {
           setForm((current) => ({ ...current, branchId: requestedBranchId }));
-        } else if ((data.branches ?? []).length === 1) {
-          setForm((current) => ({ ...current, branchId: data.branches[0].id }));
+        } else if (nextOptions.branches.length === 1) {
+          setForm((current) => ({ ...current, branchId: nextOptions.branches[0].id }));
         }
-      })
-      .catch(() => swalThemed.fire("No se pudieron cargar las opciones", "Intenta nuevamente.", "error"))
-      .finally(() => setLoadingOptions(false));
+      } catch (reason) {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setOptionsError(reason instanceof Error ? reason.message : "No se pudieron cargar las opciones");
+      } finally {
+        if (!controller.signal.aborted) setLoadingOptions(false);
+      }
+    }
+    loadOptions();
+    return () => controller.abort();
   }, [requestedBranchId]);
 
   useEffect(() => {
@@ -76,7 +94,11 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
     const params = new URLSearchParams({ branchId: form.branchId, serviceId: form.serviceId, date: form.date });
     if (form.employeeId) params.set("employeeId", form.employeeId);
     fetch(`/api/public/availability?${params}`)
-      .then((response) => response.json())
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "No se pudieron cargar los horarios");
+        return data;
+      })
       .then((data) => {
         setSlots(data.slots ?? []);
         setForm((current) => ({ ...current, time: data.slots?.[0] ?? "" }));
@@ -108,7 +130,8 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
   }
 
   function selectBranch(branchId: string) {
-    setForm((current) => ({ ...current, branchId, employeeId: "" }));
+    setSlots([]);
+    setForm((current) => ({ ...current, branchId, serviceId: "", employeeId: "", time: "" }));
   }
 
   function selectService(serviceId: string) {
@@ -135,38 +158,43 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
       : form.observations;
 
     setLoading(true);
-    const response = await fetch("/api/public/reservations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, observations, employeeId: form.employeeId || null })
-    });
-    const data = await response.json();
-    setLoading(false);
+    try {
+      const response = await fetch("/api/public/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, observations, employeeId: form.employeeId || null })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        await swalThemed.fire("No se pudo reservar", data.error ?? "Intenta nuevamente.", "error");
+        return;
+      }
 
-    if (!response.ok) {
-      await swalThemed.fire("No se pudo reservar", data.error ?? "Intenta nuevamente.", "error");
-      return;
+      await swalThemed.fire(
+        "Reserva enviada",
+        data.overlapWarning
+          ? "Tu reserva quedó pendiente. Hay otra solicitud cercana y recepción confirmará disponibilidad."
+          : "Tu reserva quedó pendiente. Recepción se comunicará para confirmarla.",
+        "success"
+      );
+
+      setForm((current) => ({
+        ...current,
+        serviceId: "",
+        employeeId: "",
+        customerName: "",
+        customerPhone: "",
+        time: "",
+        observations: ""
+      }));
+      setSlots([]);
+      setCustomNote("");
+      setStep(2);
+    } catch {
+      await swalThemed.fire("No se pudo reservar", "Revisa tu conexión e intenta nuevamente.", "error");
+    } finally {
+      setLoading(false);
     }
-
-    await swalThemed.fire(
-      "Reserva enviada",
-      data.overlapWarning
-        ? "Tu reserva quedó pendiente. Hay otra solicitud cercana y recepción confirmará disponibilidad."
-        : "Tu reserva quedó pendiente. Recepción se comunicará para confirmarla.",
-      "success"
-    );
-
-    // Reinicio del flujo manteniendo la sede elegida.
-    setForm((current) => ({
-      ...current,
-      serviceId: "",
-      employeeId: "",
-      customerName: "",
-      customerPhone: "",
-      observations: ""
-    }));
-    setCustomNote("");
-    setStep(2);
   }
 
   return (
@@ -180,7 +208,8 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
 
       <div className="mt-6 rounded-3xl border border-[var(--landing-border)] bg-[var(--landing-panel)]/90 p-5 shadow-[0_35px_100px_-45px_rgba(234,157,77,0.55)] backdrop-blur sm:p-7">
         {loadingOptions ? <LoadingPanel label="Cargando sedes, servicios y especialistas..." /> : null}
-        {!loadingOptions ? <>
+        {!loadingOptions && optionsError ? <ErrorPanel message={optionsError} /> : null}
+        {!loadingOptions && !optionsError ? <>
         {step === 1 ? (
           <StepBranch
             branches={options.branches}
@@ -406,7 +435,7 @@ function StepService({
         })}
       </div>
 
-      {standardServices.length === 0 && !customService ? <p className="py-6 text-center text-sm text-[var(--text-muted)]">Cargando servicios…</p> : null}
+      {standardServices.length === 0 && !customService ? <p className="py-6 text-center text-sm text-[var(--text-muted)]">No hay servicios disponibles para esta sede.</p> : null}
     </div>
   );
 }
@@ -530,6 +559,15 @@ function LoadingPanel({ label, compact = false }: { label: string; compact?: boo
   return (
     <div className={`flex items-center justify-center gap-3 rounded-2xl border border-[var(--landing-border)] bg-black/25 text-sm text-[var(--text-muted)] ${compact ? "px-4 py-3" : "min-h-48 p-6"}`}>
       <LoaderCircle className="animate-spin text-[var(--landing-gold)]" size={20} /> {label}
+    </div>
+  );
+}
+
+function ErrorPanel({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-red-400/40 bg-red-400/10 p-5 text-center">
+      <p className="text-sm text-red-100">{message}</p>
+      <button type="button" onClick={() => window.location.reload()} className="landing-secondary-button mt-4 px-4 py-2 text-sm">Reintentar</button>
     </div>
   );
 }

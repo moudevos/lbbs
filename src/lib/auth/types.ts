@@ -7,6 +7,7 @@ export type CurrentEmployee = {
   lastName: string;
   fullName: string;
   email: string | null;
+  profilePhotoUrl: string | null;
   role: AppRole;
   branchId: string | null;
   branchName: string | null;
@@ -21,6 +22,7 @@ export type EmployeeRow = {
   first_name: string;
   last_name: string;
   email: string | null;
+  profile_photo_url: string | null;
   role: AppRole;
   branch_id: string | null;
   is_active: boolean;

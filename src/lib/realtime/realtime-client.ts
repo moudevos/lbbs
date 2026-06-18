@@ -43,7 +43,7 @@ function notify(type: RealtimeNotification["type"], message: string, href?: stri
   };
 }
 
-export function subscribeToOperationalRealtime({ branchId, onEvent, onStatus, onError, maxRetries = 3 }: SubscribeInput): RealtimeSubscription {
+export function subscribeToOperationalRealtime({ branchId, onEvent, onStatus, onError, maxRetries = 5 }: SubscribeInput): RealtimeSubscription {
   const supabase = createClient();
   let channel: RealtimeChannel | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -68,7 +68,7 @@ export function subscribeToOperationalRealtime({ branchId, onEvent, onStatus, on
     retryTimer = setTimeout(() => {
       retryTimer = null;
       void connect(true);
-    }, Math.min(1000 * 2 ** (retryCount - 1), 8000));
+    }, Math.min(5000 * 2 ** (retryCount - 1), 30000));
     if (process.env.NODE_ENV === "development") {
       console.error("Realtime subscribe error", { status, err: "Retry scheduled" });
     }
@@ -149,4 +149,3 @@ export function subscribeToOperationalRealtime({ branchId, onEvent, onStatus, on
     }
   };
 }
-

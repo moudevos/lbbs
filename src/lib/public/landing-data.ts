@@ -7,6 +7,7 @@ import { getMainContact, type PublicContact } from "@/lib/public-contact/get-mai
 
 export type LandingService = {
   id: string;
+  branchId: string | null;
   name: string;
   durationMinutes: number;
   price: number | null;
@@ -31,6 +32,7 @@ export type LandingReview = {
   comment: string;
   rating: number;
   branchName: string | null;
+  createdAt: string;
 };
 
 export type LandingBranch = {
@@ -68,9 +70,9 @@ export type LandingData = {
 };
 
 const fallbackServices: LandingService[] = [
-  { id: "fallback-classic-cut", name: "Corte clasico", durationMinutes: 30, price: null, description: "Corte clasico en Iquitos con acabado limpio y atencion personalizada.", branchName: "La Bajadita" },
-  { id: "fallback-fade", name: "Corte fade", durationMinutes: 45, price: null, description: "Fade profesional para quienes buscan precision, estilo y presencia.", branchName: "La Bajadita" },
-  { id: "fallback-beard", name: "Barba y perfilado", durationMinutes: 30, price: null, description: "Perfilado de barba y contornos con detalle profesional.", branchName: "La Bajadita" }
+  { id: "fallback-classic-cut", branchId: null, name: "Corte clasico", durationMinutes: 30, price: null, description: "Corte clasico en Iquitos con acabado limpio y atencion personalizada.", branchName: "La Bajadita" },
+  { id: "fallback-fade", branchId: null, name: "Corte fade", durationMinutes: 45, price: null, description: "Fade profesional para quienes buscan precision, estilo y presencia.", branchName: "La Bajadita" },
+  { id: "fallback-beard", branchId: null, name: "Barba y perfilado", durationMinutes: 30, price: null, description: "Perfilado de barba y contornos con detalle profesional.", branchName: "La Bajadita" }
 ];
 
 export async function getLandingData(): Promise<LandingData> {
@@ -149,6 +151,7 @@ async function getServices(admin: ReturnType<typeof createAdminClient>) {
     const branch = Array.isArray(service.branches) ? service.branches[0] : service.branches;
     return {
       id: service.id,
+      branchId: service.branch_id,
       name: service.name,
       description: service.description,
       durationMinutes: service.duration_minutes,
@@ -193,7 +196,7 @@ async function getTeam(admin: ReturnType<typeof createAdminClient>) {
 async function getReviews(admin: ReturnType<typeof createAdminClient>) {
   const { data, error } = await admin
     .from("customer_reviews")
-    .select("id,display_name,rating,comment,is_anonymous,branches(name)")
+    .select("id,display_name,rating,comment,is_anonymous,created_at,branches(name)")
     .eq("status", "approved")
     .order("created_at", { ascending: false })
     .limit(10);
@@ -207,7 +210,8 @@ async function getReviews(admin: ReturnType<typeof createAdminClient>) {
       name: review.is_anonymous ? "Cliente La Bajadita" : review.display_name || "Cliente La Bajadita",
       rating: Number(review.rating ?? 0),
       comment: review.comment,
-      branchName: branch?.name ?? null
+      branchName: branch?.name ?? null,
+      createdAt: review.created_at
     };
   });
 }

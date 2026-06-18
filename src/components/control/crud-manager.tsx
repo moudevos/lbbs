@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { Plus, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Eye, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ButtonSpinner, FormLoadingOverlay, TableSkeleton } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -12,6 +12,7 @@ import { RoleBadge } from "@/components/ui/role-badge";
 import { ScheduleEditor } from "@/components/ui/schedule-editor";
 import { CsvToolsPanel } from "@/components/import-export/csv-tools-panel";
 import { AvatarCropUploader } from "@/components/employees/avatar-crop-uploader";
+import { EmployeeProfileModal } from "@/components/employees/employee-profile-modal";
 
 type Module = "branches" | "services" | "customers" | "employees";
 type Row = Record<string, any>;
@@ -33,6 +34,7 @@ export function CrudManager({ module }: { module: Module }) {
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState<string | null>(null);
   const [view, setView] = useState<"cards" | "table">("cards");
+  const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -140,7 +142,7 @@ export function CrudManager({ module }: { module: Module }) {
         <div><h1 className="text-3xl font-semibold">{labels[module]}</h1><p className="mt-1 text-sm text-[var(--text-muted)]">Administracion operativa.</p></div>
         <div className="flex flex-wrap gap-2">
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={load}>Buscar</button>
+          <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={loading} onClick={load}>{loading ? <><ButtonSpinner /> Buscando</> : "Buscar"}</button>
           <div className="inline-flex rounded-lg border border-[var(--border-soft)] p-1">
             <button className={`rounded-md px-3 py-1 text-sm ${view === "cards" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("cards")}>Cards</button>
             <button className={`rounded-md px-3 py-1 text-sm ${view === "table" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("table")}>Tabla</button>
@@ -151,10 +153,10 @@ export function CrudManager({ module }: { module: Module }) {
       {temporaryPassword ? <div className="rounded-lg border border-[var(--border-soft)] bg-[rgba(212,175,55,0.08)] p-4 text-sm">Password temporal visible una sola vez: <strong>{temporaryPassword}</strong><br />El empleado debe validar su correo y luego cambiar este password al ingresar.</div> : null}
       {module === "customers" ? <CsvToolsPanel title="Importar clientes Google Contacts CSV" importUrl="/api/control/customers/import" exportUrl="/api/control/reports/customers/export" exportFormat="xlsx" onImported={load} /> : null}
       {module === "services" ? <CsvToolsPanel title="Servicios XLSX" templateUrl="/api/control/services/template" importUrl="/api/control/services/import" format="xlsx" onImported={load} /> : null}
-      {editing ? <Editor module={module} row={editing} branches={branches} saving={saving} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} /> : null}
-      {loading ? <TableSkeleton /> : null}
+      {editing ? <EditorModal module={module} row={editing} branches={branches} saving={saving} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} /> : null}
+      {loading && rows.length === 0 ? <TableSkeleton /> : null}
       {!loading && rows.length === 0 ? <EmptyState /> : null}
-      <div className={view === "cards" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "grid gap-2"}>
+      <div className={`${view === "cards" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "grid gap-2"} transition-opacity ${loading ? "pointer-events-none opacity-50" : ""}`}>
         {rows.map((row) => (
           <article key={row.id} className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-3">
             <div className={view === "cards" ? "flex h-full flex-col justify-between gap-3" : "flex flex-col gap-3 md:flex-row md:items-center md:justify-between"}>
@@ -171,6 +173,7 @@ export function CrudManager({ module }: { module: Module }) {
                 {module === "customers" ? <CustomerStats row={row} /> : null}
               </div>
               <div className="flex flex-wrap gap-2">
+                {module === "employees" ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setProfileEmployeeId(row.id)}><Eye size={14} /> Ver perfil</button> : null}
                 {canMutate ? <button className="rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={async () => {
                   const next = fromRow(row);
                   if (module === "branches") {
@@ -187,23 +190,31 @@ export function CrudManager({ module }: { module: Module }) {
           </article>
         ))}
       </div>
+      <EmployeeProfileModal employeeId={profileEmployeeId} onClose={() => setProfileEmployeeId(null)} />
     </section>
   );
 }
 
-function Editor({ module, row, branches, saving, onChange, onSave, onCancel }: { module: Module; row: Row; branches: Row[]; saving: boolean; onChange: (row: Row) => void; onSave: () => void; onCancel: () => void }) {
+function EditorModal({ module, row, branches, saving, onChange, onSave, onCancel }: { module: Module; row: Row; branches: Row[]; saving: boolean; onChange: (row: Row) => void; onSave: () => void; onCancel: () => void }) {
   return (
-    <div className="relative rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
-      <FormLoadingOverlay show={saving} />
-      <div className="grid gap-3 md:grid-cols-2">
+    <div className="fixed inset-0 z-[1250] flex items-center justify-center p-4">
+      <button type="button" aria-label="Cerrar formulario" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={saving ? undefined : onCancel} />
+      <div role="dialog" aria-modal="true" aria-label={`${row.id ? "Editar" : "Crear"} ${labels[module]}`} className="relative z-10 max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[var(--border-soft)] bg-[#0b0b0b] p-5 shadow-2xl md:p-7">
+        <FormLoadingOverlay show={saving} />
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div><p className="text-xs uppercase tracking-[0.18em] text-[var(--gold-soft)]">{row.id ? "Editar registro" : "Nuevo registro"}</p><h2 className="mt-1 text-2xl font-semibold">{labels[module]}</h2></div>
+          <button type="button" aria-label="Cerrar" className="rounded-full border border-[var(--border-soft)] p-2 disabled:opacity-50" disabled={saving} onClick={onCancel}><X size={18} /></button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
         {module === "branches" ? <><Input label="Nombre" value={row.name} onChange={(v) => onChange({ ...row, name: v })} /><Input label="Celular" value={row.phone} onChange={(v) => onChange({ ...row, phone: v })} /><Input label="Direccion" value={row.address} onChange={(v) => onChange({ ...row, address: v })} /><div className="md:col-span-2"><p className="mb-2 text-sm text-[var(--text-muted)]">Horario semanal de sede</p><ScheduleEditor mode="branch" value={row.schedules ?? defaultBranchSchedule()} onChange={(value) => onChange({ ...row, schedules: value })} /></div></> : null}
         {module === "services" ? <><Input label="Nombre" value={row.name} onChange={(v) => onChange({ ...row, name: v })} /><Input label="Descripcion" value={row.description} onChange={(v) => onChange({ ...row, description: v })} /><Input label="Duracion min" type="number" value={row.durationMinutes} onChange={(v) => onChange({ ...row, durationMinutes: Number(v) })} /><Input label="Precio" type="number" step="0.01" value={row.price} onChange={(v) => onChange({ ...row, price: v })} /><BranchSelect value={row.branchId} branches={branches} allowGlobal onChange={(v) => onChange({ ...row, branchId: v })} /></> : null}
         {module === "customers" ? <><Input label="Nombre" value={row.fullName} onChange={(v) => onChange({ ...row, fullName: v })} /><Input label="Celular" value={row.phone} onChange={(v) => onChange({ ...row, phone: v })} /><Input label="Notas" value={row.notes} onChange={(v) => onChange({ ...row, notes: v })} /><BranchSelect value={row.branchId} branches={branches} onChange={(v) => onChange({ ...row, branchId: v })} /></> : null}
         {module === "employees" ? <><Input label="Nombre" value={row.firstName} onChange={(v) => onChange({ ...row, firstName: v })} /><Input label="Apellido" value={row.lastName} onChange={(v) => onChange({ ...row, lastName: v })} /><Input label="Apodo visible" value={row.nickname} onChange={(v) => onChange({ ...row, nickname: v })} /><Input label="Especialidad" value={row.specialty} onChange={(v) => onChange({ ...row, specialty: v })} /><Input label="% produccion" type="number" value={row.productionPercentage} onChange={(v) => onChange({ ...row, productionPercentage: Number(v) })} /><label className="flex items-center gap-2 text-sm text-[var(--text-muted)]"><input type="checkbox" checked={Boolean(row.canPerformServices || row.role === "barbero")} disabled={row.role === "barbero"} onChange={(e) => onChange({ ...row, canPerformServices: e.target.checked })} /> Puede realizar servicios</label><Input label="Celular" value={row.phone} onChange={(v) => onChange({ ...row, phone: v })} /><Input label="Email" value={row.email} onChange={(v) => onChange({ ...row, email: v })} /><label className="text-sm text-[var(--text-muted)]">Rol<select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={row.role} onChange={(e) => { const nextRole = e.target.value; onChange({ ...row, role: nextRole, canPerformServices: nextRole === "barbero" ? true : row.canPerformServices, createUser: nextRole === "barbero" ? false : row.createUser }); }}><option value="admin">admin</option><option value="recepcion">recepcion</option><option value="barbero">barbero</option></select></label><BranchSelect value={row.branchId} branches={branches} onChange={(v) => onChange({ ...row, branchId: v })} />{row.id ? <AvatarCropUploader row={row} onUploaded={(url) => onChange({ ...row, profilePhotoUrl: url })} /> : null}{!row.id ? <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]"><input type="checkbox" checked={Boolean(row.createUser)} disabled={row.role === "barbero"} onChange={(e) => onChange({ ...row, createUser: e.target.checked })} /> Crear usuario Auth{row.role === "barbero" ? " (no aplica para barberos)" : ""}</label> : null}</> : null}
-      </div>
-      <div className="mt-4 flex gap-2">
-        <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" onClick={onSave} disabled={saving}>{saving ? <ButtonSpinner /> : <Save size={16} />} Guardar</button>
-        <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={onCancel} disabled={saving}>Cancelar</button>
+        </div>
+        <div className="mt-6 flex justify-end gap-2 border-t border-[var(--border-soft)] pt-4">
+          <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={onCancel} disabled={saving}>Cancelar</button>
+          <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" onClick={onSave} disabled={saving}>{saving ? <ButtonSpinner /> : <Save size={16} />} Guardar</button>
+        </div>
       </div>
     </div>
   );

@@ -6,12 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RealtimeNotification } from "@/lib/realtime/realtime-events";
 import { subscribeToOperationalRealtime, type RealtimeErrorInfo, type RealtimeStatus, type RealtimeSubscription } from "@/lib/realtime/realtime-client";
-import { useRouter } from "next/navigation";
 
-export function RealtimeNotificationCenter({ branchId }: { branchId?: string | null }) {
+export function RealtimeNotificationCenter({ branchId, onStatusChange }: { branchId?: string | null; onStatusChange?: (status: RealtimeStatus, lastSyncAt: string | null) => void }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const subscriptionRef = useRef<RealtimeSubscription | null>(null);
-  const router = useRouter();
+  const statusCallbackRef = useRef(onStatusChange);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<RealtimeNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +20,10 @@ export function RealtimeNotificationCenter({ branchId }: { branchId?: string | n
   const [syncStatus, setSyncStatus] = useState<RealtimeStatus>("idle");
   const [syncError, setSyncError] = useState<RealtimeErrorInfo | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    statusCallbackRef.current = onStatusChange;
+  }, [onStatusChange]);
 
   useEffect(() => {
     setMounted(true);
@@ -36,11 +39,13 @@ export function RealtimeNotificationCenter({ branchId }: { branchId?: string | n
       branchId,
       onStatus: (status) => {
         setSyncStatus(status);
+        const syncedAt = status === "connected" ? new Date().toISOString() : null;
         if (status === "connected") {
           setRetrying(false);
           setSyncError(null);
-          setLastSyncAt(new Date().toISOString());
+          setLastSyncAt(syncedAt);
         }
+        statusCallbackRef.current?.(status, syncedAt);
         if (status === "disabled") setRetrying(false);
       },
       onError: (error) => setSyncError(error),
@@ -115,9 +120,6 @@ export function RealtimeNotificationCenter({ branchId }: { branchId?: string | n
           <p>{syncStatus === "disabled" ? "Realtime no disponible. Puedes seguir usando el sistema y actualizar manualmente." : "Reconectando sincronización..."}</p>
           <button className="mt-2 inline-flex items-center gap-2 rounded-lg border border-red-200/30 px-2 py-1 disabled:opacity-60" disabled={retrying} onClick={retrySync}>
             {retrying ? <Loader2 size={13} className="animate-spin" /> : <RefreshCcw size={13} />} Reintentar sincronización
-          </button>
-          <button className="ml-2 mt-2 inline-flex items-center gap-2 rounded-lg border border-red-200/30 px-2 py-1" onClick={() => router.refresh()}>
-            <RefreshCcw size={13} /> Actualizar
           </button>
         </div>
       ) : null}

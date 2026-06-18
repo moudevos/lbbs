@@ -30,12 +30,15 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: service, error: serviceError } = await admin
     .from("services")
-    .select("id,sku,duration_minutes,price")
+    .select("id,sku,duration_minutes,price,branch_id,is_active")
     .eq("id", body.serviceId)
     .maybeSingle();
 
   if (serviceError || !service) {
     return NextResponse.json({ error: serviceError?.message ?? "Servicio no encontrado" }, { status: 404 });
+  }
+  if (!service.is_active || (service.branch_id && service.branch_id !== body.branchId)) {
+    return NextResponse.json({ error: "El servicio no esta disponible en la sede seleccionada" }, { status: 400 });
   }
 
   const startsAt = toLocalDateTime(body.date, body.time);

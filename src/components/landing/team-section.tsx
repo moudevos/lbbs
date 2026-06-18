@@ -6,8 +6,12 @@ import { CalendarCheck, MapPin } from "lucide-react";
 import { LandingSectionTitle } from "./landing-section-title";
 import type { LandingTeamMember } from "@/lib/public/landing-data";
 import { trackEvent } from "@/lib/analytics/track-event";
+import { useRef } from "react";
+import { CarouselNavigation } from "./carousel-navigation";
 
 export function TeamSection({ team }: { team: LandingTeamMember[] }) {
+  const carouselRef = useRef<HTMLDivElement>(null);
+
   return (
     <section id="equipo" className="relative scroll-mt-24 bg-[#071013] py-14 md:py-16">
       <div className="mx-auto max-w-7xl px-6">
@@ -17,12 +21,18 @@ export function TeamSection({ team }: { team: LandingTeamMember[] }) {
 
         {team.length === 0 ? <Message text="Nuestro equipo estará disponible pronto. Reserva tu cita y te asignaremos un especialista según tu servicio." /> : null}
         {team.length > 0 ? (
-          <div className="no-scrollbar -mx-6 flex snap-x gap-5 overflow-x-auto overflow-y-hidden px-6 pb-3 md:mx-0 md:px-0">
+          <>
+          <div className="mb-4">
+            <CarouselNavigation carouselRef={carouselRef} label="barberos" />
+          </div>
+          <div ref={carouselRef} className="no-scrollbar -mx-6 flex snap-x gap-5 overflow-x-auto overflow-y-hidden px-6 pb-3 lg:mx-0 lg:px-0">
             {team.map((member) => (
-              <article key={member.id} className="group flex min-w-[82vw] max-w-[82vw] snap-start flex-col overflow-hidden rounded-[1.75rem] border border-[var(--landing-border)] bg-[var(--landing-panel)]/78 transition-all duration-300 hover:border-[var(--border-strong)] sm:min-w-80 sm:max-w-80">
+              <article data-carousel-card key={member.id} className="group flex min-w-[82vw] max-w-[82vw] snap-start flex-col overflow-hidden rounded-[1.75rem] border border-[var(--landing-border)] bg-[var(--landing-panel)]/78 transition-all duration-300 hover:border-[var(--border-strong)] sm:min-w-80 sm:max-w-80 lg:min-w-[calc((100%_-_2.5rem)/3)] lg:max-w-[calc((100%_-_2.5rem)/3)]">
                 <div className="px-6 pb-4 pt-6 text-center">
                   <h3 className="text-2xl font-semibold text-white">{shortName(member.firstName, member.lastName)}</h3>
-                  {member.nickname ? <p className="mt-1 text-sm font-medium text-[var(--landing-gold-soft)]">{member.nickname}</p> : null}
+                  <p className={`mt-1 min-h-5 text-sm font-medium text-[var(--landing-gold-soft)] ${member.nickname ? "" : "invisible"}`} aria-hidden={!member.nickname}>
+                    {member.nickname || "Sin apodo"}
+                  </p>
                 </div>
                 <div className="relative aspect-[4/3] overflow-hidden bg-[radial-gradient(circle_at_30%_25%,_rgba(212,175,55,0.25),_transparent_60%),linear-gradient(160deg,#1c1c1c,#070707)]">
                   <TeamPhoto member={member} />
@@ -38,6 +48,7 @@ export function TeamSection({ team }: { team: LandingTeamMember[] }) {
               </article>
             ))}
           </div>
+          </>
         ) : null}
       </div>
     </section>

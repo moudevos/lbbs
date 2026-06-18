@@ -12,6 +12,7 @@ function mapEmployee(userId: string, employee: EmployeeRow): CurrentEmployee {
     lastName: employee.last_name,
     fullName: `${employee.first_name} ${employee.last_name}`.trim(),
     email: employee.email,
+    profilePhotoUrl: employee.profile_photo_url,
     role: employee.role,
     branchId: employee.branch_id,
     branchName: branch?.name ?? null,
@@ -31,7 +32,7 @@ export async function getCurrentEmployee(supabaseClient?: SupabaseClient): Promi
 
   const { data, error } = await supabase
     .from("employees")
-    .select("id,user_id,first_name,last_name,email,role,branch_id,is_active,must_change_password,branches(name,code)")
+    .select("id,user_id,first_name,last_name,email,profile_photo_url,role,branch_id,is_active,must_change_password,branches(name,code)")
     .eq("user_id", userData.user.id)
     .maybeSingle();
 
