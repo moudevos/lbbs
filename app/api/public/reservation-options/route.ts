@@ -7,7 +7,12 @@ export async function GET() {
   const [branches, services, barbers, mainContact] = await Promise.all([
     admin.from("branches").select("id,code,name,phone").eq("is_active", true).order("name"),
     admin.from("services").select("id,sku,name,duration_minutes,price,branch_id").eq("is_active", true).order("name"),
-    admin.from("employees").select("id,first_name,last_name,branch_id").eq("is_active", true).eq("role", "barbero").order("first_name"),
+    admin.from("employees")
+      .select("id,first_name,last_name,nickname,branch_id,role,can_perform_services")
+      .eq("is_active", true)
+      .not("branch_id", "is", null)
+      .or("role.eq.barbero,can_perform_services.eq.true")
+      .order("first_name"),
     getMainContact(admin)
   ]);
 
@@ -28,7 +33,7 @@ export async function GET() {
     })),
     barbers: (barbers.data ?? []).map((barber) => ({
       id: barber.id,
-      name: `${barber.first_name} ${barber.last_name}`.trim(),
+      name: `${barber.first_name ?? ""} ${barber.last_name ?? ""}`.trim() || "Barbero",
       branchId: barber.branch_id
     }))
   });

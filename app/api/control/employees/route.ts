@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
   const branchId = request.nextUrl.searchParams.get("branch_id") ?? request.nextUrl.searchParams.get("branchId");
   let query = context.admin
     .from("employees")
-    .select("id,code,first_name,last_name,nickname,specialty,profile_photo_path,profile_photo_url,production_percentage,can_perform_services,phone,email,role,branch_id,is_active,must_change_password,onboarding_status,email_confirmed_at,branches(name)")
+    .select("id,user_id,code,first_name,last_name,nickname,specialty,profile_photo_path,profile_photo_url,production_percentage,can_perform_services,phone,email,role,branch_id,is_active,must_change_password,onboarding_status,email_confirmed_at,branches(name)")
     .order("code");
-  if (context.employee.role === "recepcion") query = query.eq("branch_id", context.employee.branchId).eq("role", "barbero");
+  if (context.employee.role === "recepcion") query = query.eq("branch_id", context.employee.branchId);
   const scope = resolveBranchScope(context.employee, branchId);
   if (context.employee.role === "admin" && scope.mode === "branch") query = query.eq("branch_id", scope.branchId);
   if (role) query = query.eq("role", role);
@@ -42,13 +42,14 @@ export async function POST(request: NextRequest) {
   if (!context.ok) return context.error;
   const body = await request.json();
   const role = body.role as AppRole;
+  const createUser = role === "barbero" ? false : Boolean(body.createUser);
   if (!body.firstName || !body.lastName || !role) return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
   if ((role === "recepcion" || role === "barbero") && !body.branchId) return NextResponse.json({ error: "Sede requerida" }, { status: 400 });
-  if (body.createUser && !body.email) return NextResponse.json({ error: "Email requerido para usuario" }, { status: 400 });
+  if (createUser && !body.email) return NextResponse.json({ error: "Email requerido para usuario" }, { status: 400 });
   const code = await nextCode(context.admin, "employees", "code", "EMP", 3);
   let userId: string | null = null;
   let temporaryPassword: string | null = null;
-  if (body.createUser) {
+  if (createUser) {
     temporaryPassword = generateTemporaryPassword();
     const created = await context.admin.auth.admin.createUser({
       email: body.email,

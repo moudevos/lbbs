@@ -16,6 +16,8 @@ export type LandingService = {
 
 export type LandingTeamMember = {
   id: string;
+  firstName: string;
+  lastName: string;
   nickname: string | null;
   fullName: string;
   specialty: string;
@@ -177,6 +179,8 @@ async function getTeam(admin: ReturnType<typeof createAdminClient>) {
     });
     return {
       id: employee.id,
+      firstName: employee.first_name?.trim() || "",
+      lastName: employee.last_name?.trim() || "",
       nickname: employee.nickname?.trim() || null,
       fullName: `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim(),
       specialty: employee.specialty?.trim() || "Barbero profesional",

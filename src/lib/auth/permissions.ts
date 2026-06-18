@@ -21,7 +21,7 @@ export const controlModules: ControlModule[] = [
   { label: "Landing / Galeria", href: "/app/control/landing/galeria", roles: ["admin"] },
   { label: "Dispositivos", href: "/app/control/dispositivos", roles: ["admin", "recepcion"] },
   { label: "Clientes", href: "/app/control/clientes", roles: ["admin", "recepcion"] },
-  { label: "Empleados", href: "/app/control/empleados", roles: ["admin"] },
+  { label: "Empleados", href: "/app/control/empleados", roles: ["admin", "recepcion"] },
   { label: "Servicios", href: "/app/control/servicios", roles: ["admin", "recepcion"] },
   { label: "Sedes", href: "/app/control/sedes", roles: ["admin"] },
   { label: "Rewards", href: "/app/control/rewards", roles: ["admin", "recepcion"] },

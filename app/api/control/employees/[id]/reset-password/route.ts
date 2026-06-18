@@ -6,7 +6,8 @@ import { writeAuditLog } from "@/lib/audit";
 export async function POST(_: Request, { params }: { params: { id: string } }) {
   const context = await requireAdmin();
   if (!context.ok) return context.error;
-  const { data: employee, error } = await context.admin.from("employees").select("id,user_id,email").eq("id", params.id).maybeSingle();
+  const { data: employee, error } = await context.admin.from("employees").select("id,user_id,email,role").eq("id", params.id).maybeSingle();
+  if (employee?.role === "barbero") return NextResponse.json({ error: "Los barberos no usan acceso Auth" }, { status: 400 });
   if (error || !employee?.user_id) return NextResponse.json({ error: error?.message ?? "Empleado sin usuario" }, { status: 404 });
   const temporaryPassword = generateTemporaryPassword();
   const auth = await context.admin.auth.admin.updateUserById(employee.user_id, { password: temporaryPassword });
