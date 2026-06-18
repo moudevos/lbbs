@@ -37,7 +37,7 @@ export default async function HomePage() {
       <ServicesMarquee services={landingData.services} />
       <WorkCollage items={landingData.gallery} socialLinks={landingData.settings.socialLinks} phones={landingData.mainContact.phone ? [landingData.mainContact.phone] : landingData.settings.phones} />
       <TeamSection team={landingData.team} />
-      <TestimonialsMarquee reviews={landingData.reviews} />
+      <TestimonialsMarquee reviews={landingData.reviews} socialLinks={landingData.settings.socialLinks} mainPhone={landingData.mainContact.phone} />
       <LocationHours branches={landingData.branches} mainPhone={landingData.mainContact.phone} />
       <LandingFooter branches={landingData.branches} settings={landingData.settings} mainPhone={landingData.mainContact.phone} />
     </main>

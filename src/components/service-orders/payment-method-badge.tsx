@@ -6,6 +6,7 @@ const labels: Record<PaymentMethod, string> = {
   plin: "Plin",
   tarjeta: "Tarjeta",
   transferencia: "Transferencia",
+  reward: "Reward",
   mixto: "Mixto"
 };
 

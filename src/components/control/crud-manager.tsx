@@ -165,7 +165,8 @@ export function CrudManager({ module }: { module: Module }) {
                   <StatusBadge active={row.is_active} />
                 </div>
                 {module === "employees" && row.profile_photo_url ? <img src={row.profile_photo_url} alt="" className="mb-2 h-14 w-14 rounded-full object-cover" /> : null}
-                <h2 className="mt-2 text-base font-semibold">{row.name ?? row.full_name ?? row.nickname ?? `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim()}</h2>
+                <h2 className="mt-2 text-base font-semibold">{module === "employees" ? (`${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || row.full_name || row.name) : (row.name ?? row.full_name)}</h2>
+                {module === "employees" && row.nickname ? <p className="text-sm text-[var(--gold-soft)]">Apodo: {row.nickname}</p> : null}
                 <p className="text-sm text-[var(--text-muted)]">{describeRow(module, row)}</p>
                 {module === "customers" ? <CustomerStats row={row} /> : null}
               </div>

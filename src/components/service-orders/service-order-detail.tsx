@@ -78,6 +78,10 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   const items = order?.service_order_items ?? [];
   const payments = order?.payment_details ?? [];
   const locked = order?.status === "pagado" || order?.status === "anulado";
+  const hasClassicCut = items.some((item: any) => {
+    const text = `${item.name ?? ""} ${item.description ?? ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return ["service", "custom_service"].includes(item.item_type) && text.includes("corte") && text.includes("clasico");
+  });
 
   const selectedProduct = useMemo(() => products.find((product) => product.id === productId), [productId, products]);
   const selectedProductCredit = Boolean(selectedProduct?.counts_for_seller_credit);
@@ -197,19 +201,35 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     }
   }
 
-  async function redeem(rewardType: "classic_cut" | "voucher_30") {
+  async function redeem() {
     if (busyAction) return;
-    setBusyAction(rewardType);
+    setBusyAction("classic_cut");
     try {
       const response = await fetch(`/api/control/service-orders/${id}/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rewardType })
+        body: JSON.stringify({ rewardType: "classic_cut_free" })
       });
       const data = await response.json();
       if (!response.ok) return showError("No se pudo canjear", data.error ?? "Sin recompensa disponible.");
       await load();
       await showSuccess("Recompensa aplicada", `Descuento: S/ ${Number(data.discount ?? 0).toFixed(2)}`);
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function removeReward() {
+    if (busyAction) return;
+    setBusyAction("remove-reward");
+    try {
+      const response = await fetch("/api/control/rewards/remove", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceOrderId: id })
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo quitar reward", data.error);
+      await load();
+      await showSuccess("Reward liberado");
     } finally {
       setBusyAction(null);
     }
@@ -339,11 +359,11 @@ export function ServiceOrderDetail({ id }: { id: string }) {
             <div className="grid gap-2">
               <p className="text-sm text-[var(--text-muted)]">Recompensas disponibles: {rewards?.available_rewards ?? 0}</p>
               {Number(rewards?.available_rewards ?? 0) > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs disabled:opacity-60" disabled={Boolean(busyAction)} onClick={() => redeem("classic_cut")}>{busyAction === "classic_cut" ? <Loader2 size={14} className="animate-spin" /> : null}Corte gratis</button>
-                  <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs disabled:opacity-60" disabled={Boolean(busyAction)} onClick={() => redeem("voucher_30")}>{busyAction === "voucher_30" ? <Loader2 size={14} className="animate-spin" /> : null}Vale S/30</button>
-                </div>
+                hasClassicCut
+                  ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--gold)] px-3 py-2 text-xs disabled:opacity-60" disabled={Boolean(busyAction)} onClick={redeem}>{busyAction === "classic_cut" ? <Loader2 size={14} className="animate-spin" /> : null}Aplicar corte gratis</button>
+                  : <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">Reward disponible solo para Corte Clásico.</p>
               ) : null}
+              {order.reward_redemption_id ? <button className="rounded-lg border border-red-400/40 px-3 py-2 text-xs text-red-200" disabled={Boolean(busyAction)} onClick={removeReward}>Quitar reward</button> : null}
             </div>
             <PaymentSplitEditor total={Number(order.total ?? 0)} method={paymentMethod} splits={splits} onMethodChange={setPaymentMethod} onSplitsChange={setSplits} />
             <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-3 font-semibold text-black disabled:opacity-60" disabled={Boolean(busyAction) || items.length === 0} onClick={pay}>{busyAction === "pay" ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />} Registrar pago</button>

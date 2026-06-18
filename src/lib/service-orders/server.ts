@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { findOrCreateCustomerByPhone } from "@/lib/reservations/server";
-import { countServiceOrderVisitOnce, redeemCustomerReward } from "@/lib/rewards/server";
+import { applyClassicCutReward, countServiceOrderVisitOnce, finalizeReward } from "@/lib/rewards/server";
 import { calculateProductionForPaidOrder } from "@/lib/production/server";
 import type { PaymentMethod, PaymentSplit } from "./types";
 
@@ -258,7 +258,7 @@ export async function convertReservationToServiceOrder(admin: AdminClient, reser
 export async function payServiceOrder(admin: AdminClient, serviceOrderId: string, method: PaymentMethod, splits?: PaymentSplit[], actorUserId?: string | null) {
   const { data: order, error } = await admin
     .from("service_orders")
-    .select("id,total,status,service_id,service_order_items(item_type)")
+    .select("id,total,status,service_id,reward_redemption_id,service_order_items(item_type)")
     .eq("id", serviceOrderId)
     .maybeSingle();
 
@@ -268,7 +268,8 @@ export async function payServiceOrder(admin: AdminClient, serviceOrderId: string
   if (!hasBillableItem) return NextResponse.json({ error: missingPaymentItemsMessage }, { status: 400 });
 
   const total = normalizeMoney(order.total);
-  const paymentSplits = total === 0 ? [] : buildPaymentSplits(method, total, splits);
+  if (total === 0 && !order.reward_redemption_id) return NextResponse.json({ error: "Total cero solo permitido con reward valido" }, { status: 400 });
+  const paymentSplits = total === 0 ? [{ method: "reward" as const, amount: 0, reference: "classic_cut_free" }] : buildPaymentSplits(method, total, splits);
   const validation = validatePaymentSplits(total, paymentSplits);
   if (validation) return NextResponse.json({ error: validation }, { status: 400 });
 
@@ -291,7 +292,8 @@ export async function payServiceOrder(admin: AdminClient, serviceOrderId: string
     .eq("id", serviceOrderId);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-  await countServiceOrderVisitOnce(admin, serviceOrderId);
+  await finalizeReward(admin, serviceOrderId, actorUserId);
+  await countServiceOrderVisitOnce(admin, serviceOrderId, actorUserId);
   const production = await calculateProductionForPaidOrder(admin, serviceOrderId, actorUserId);
   if (production.error) return NextResponse.json({ error: production.error }, { status: 500 });
   return NextResponse.json({ ok: true, paid: total, production });
@@ -305,66 +307,11 @@ export async function applyRewardToServiceOrder({
 }: {
   admin: AdminClient;
   serviceOrderId: string;
-  rewardType: "classic_cut" | "voucher_30";
+  rewardType: "classic_cut" | "classic_cut_free";
   actorUserId?: string | null;
 }) {
-  const { data: order, error } = await admin
-    .from("service_orders")
-    .select("id,customer_id,branch_id,total,subtotal,discount_amount,total_paid,status,reward_redemption_id,service_order_items(item_type,name,description)")
-    .eq("id", serviceOrderId)
-    .maybeSingle();
-  if (error || !order) return { error: error?.message ?? "Servicio no encontrado" };
-  if (!["registrado", "pendiente_pago"].includes(order.status)) return { error: "Solo se puede canjear reward antes de pagar" };
-  if (order.reward_redemption_id || (order.service_order_items ?? []).some((item: any) => item.item_type === "reward_discount")) {
-    return { error: "Esta atencion ya tiene un reward aplicado" };
-  }
-  const currentTotal = normalizeMoney(order.total);
-  if (rewardType === "voucher_30" && currentTotal <= 30) return { error: "El vale S/30 solo aplica cuando el total es mayor a S/30" };
-  const hasClassicCut = (order.service_order_items ?? []).some((item: any) => {
-    const text = `${item.name ?? ""} ${item.description ?? ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    return ["service", "custom_service"].includes(item.item_type) && text.includes("corte") && text.includes("clasico");
-  });
-  if (rewardType === "classic_cut" && !hasClassicCut) return { error: "El corte gratis solo aplica si la atencion incluye Corte Clasico" };
-
-  const redeemed = await redeemCustomerReward({
-    admin,
-    customerId: order.customer_id,
-    branchId: order.branch_id,
-    serviceOrderId,
-    rewardType,
-    redeemedBy: actorUserId ?? null
-  });
-  if (redeemed.error) return redeemed;
-
-  const discount = Math.min(normalizeMoney(redeemed.amountValue), normalizeMoney(order.total));
-  const nextTotal = Math.max(normalizeMoney(order.total) - discount, 0);
-  const nextDiscount = normalizeMoney(order.discount_amount) + discount;
-  const { error: updateError } = await admin
-    .from("service_orders")
-    .update({
-      total: nextTotal,
-      balance: Math.max(nextTotal - normalizeMoney(order.total_paid), 0),
-      discount_amount: nextDiscount,
-      reward_redemption_id: redeemed.redemptionId
-    })
-    .eq("id", serviceOrderId);
-
-  if (updateError) return { error: updateError.message };
-
-  await admin.from("service_order_items").insert({
-    service_order_id: serviceOrderId,
-    item_type: "reward_discount",
-    name: rewardType === "voucher_30" ? "Vale S/30" : "Corte clasico gratis",
-    description: "Descuento por recompensa",
-    quantity: 1,
-    unit_price: -discount,
-    amount: -discount,
-    subtotal: -discount,
-    discount_amount: discount,
-    branch_id: order.branch_id
-  });
-
-  return { discount, redemptionId: redeemed.redemptionId };
+  if (!["classic_cut", "classic_cut_free"].includes(rewardType)) return { error: "Solo existe reward de corte clasico" };
+  return applyClassicCutReward(admin, serviceOrderId, actorUserId);
 }
 
 async function getServiceName(admin: AdminClient, serviceId: string) {

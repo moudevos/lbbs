@@ -16,6 +16,7 @@ export function calculateLiquidationSnapshot(entries: ProductionEntrySnapshot[])
   const services = entries.filter((entry) => entry.entry_type === "service");
   const products = entries.filter((entry) => entry.entry_type === "product_credit");
   const bonuses = entries.filter((entry) => entry.entry_type === "bonus");
+  const rewards = entries.filter((entry) => entry.entry_type === "reward_classic_cut");
   const sum = (rows: ProductionEntrySnapshot[], key: keyof ProductionEntrySnapshot) =>
     money(rows.reduce((total, row) => total + Number(row[key] ?? 0), 0));
 
@@ -26,8 +27,9 @@ export function calculateLiquidationSnapshot(entries: ProductionEntrySnapshot[])
     assignedPercentage: Number(services[0]?.percentage ?? 0),
     serviceEarnings: sum(services, "barber_earning"),
     productCredits: sum(products, "barber_earning"),
+    rewardIncentives: sum(rewards, "barber_earning"),
     bonuses: sum(bonuses, "barber_earning"),
-    totalLiquidation: money(sum(services, "barber_earning") + sum(products, "barber_earning") + sum(bonuses, "barber_earning")),
+    totalLiquidation: money(sum(services, "barber_earning") + sum(products, "barber_earning") + sum(rewards, "barber_earning") + sum(bonuses, "barber_earning")),
     cutoffAt: new Date().toISOString(),
     items: entries.map((entry) => ({
       productionEntryId: entry.id,

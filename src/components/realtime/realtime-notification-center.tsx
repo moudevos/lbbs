@@ -5,19 +5,21 @@ import { Bell, CheckCircle2, Loader2, RefreshCcw, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RealtimeNotification } from "@/lib/realtime/realtime-events";
-import { subscribeToOperationalRealtime } from "@/lib/realtime/realtime-client";
+import { subscribeToOperationalRealtime, type RealtimeErrorInfo, type RealtimeStatus, type RealtimeSubscription } from "@/lib/realtime/realtime-client";
+import { useRouter } from "next/navigation";
 
 export function RealtimeNotificationCenter({ branchId }: { branchId?: string | null }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const subscriptionRef = useRef<RealtimeSubscription | null>(null);
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<RealtimeNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingRead, setMarkingRead] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [retryToken, setRetryToken] = useState(0);
   const [mounted, setMounted] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<"connecting" | "synced" | "error">("connecting");
-  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<RealtimeStatus>("idle");
+  const [syncError, setSyncError] = useState<RealtimeErrorInfo | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,27 +31,31 @@ export function RealtimeNotificationCenter({ branchId }: { branchId?: string | n
     setSyncStatus("connecting");
     setSyncError(null);
     const timer = window.setTimeout(() => setLoading(false), 800);
-    const unsubscribe = subscribeToOperationalRealtime({
+    subscriptionRef.current?.stop();
+    const subscription = subscribeToOperationalRealtime({
       branchId,
       onStatus: (status) => {
         setSyncStatus(status);
-        setRetrying(false);
-        if (status === "synced") {
+        if (status === "connected") {
+          setRetrying(false);
           setSyncError(null);
           setLastSyncAt(new Date().toISOString());
         }
+        if (status === "disabled") setRetrying(false);
       },
-      onError: (message) => setSyncError(message),
+      onError: (error) => setSyncError(error),
       onEvent: (notification) => {
         setLoading(false);
         setItems((current) => [notification, ...current].slice(0, 10));
       }
     });
+    subscriptionRef.current = subscription;
     return () => {
       window.clearTimeout(timer);
-      unsubscribe();
+      subscription.stop();
+      if (subscriptionRef.current === subscription) subscriptionRef.current = null;
     };
-  }, [branchId, retryToken]);
+  }, [branchId]);
 
   useEffect(() => {
     if (!open) return;
@@ -82,9 +88,9 @@ export function RealtimeNotificationCenter({ branchId }: { branchId?: string | n
   function retrySync() {
     if (retrying) return;
     setRetrying(true);
-    setSyncStatus("connecting");
+    setSyncStatus("reconnecting");
     setSyncError(null);
-    setRetryToken((value) => value + 1);
+    subscriptionRef.current?.retry();
   }
 
   const panel = open && mounted ? createPortal(
@@ -104,11 +110,14 @@ export function RealtimeNotificationCenter({ branchId }: { branchId?: string | n
         </button>
       </div>
 
-      {syncStatus === "error" ? (
-        <div className="mb-3 rounded-xl border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
-          <p>{syncError ?? "Error de sincronizacion realtime."}</p>
+      {syncStatus === "error" || syncStatus === "reconnecting" || syncStatus === "disabled" ? (
+        <div className="mb-3 rounded-xl border border-red-300/30 bg-red-500/10 px-3 py-2 text-xs text-red-100" title={syncError ? `${syncError.name} · ${formatTime(syncError.timestamp)}` : undefined}>
+          <p>{syncStatus === "disabled" ? "Realtime no disponible. Puedes seguir usando el sistema y actualizar manualmente." : "Reconectando sincronización..."}</p>
           <button className="mt-2 inline-flex items-center gap-2 rounded-lg border border-red-200/30 px-2 py-1 disabled:opacity-60" disabled={retrying} onClick={retrySync}>
-            {retrying ? <Loader2 size={13} className="animate-spin" /> : <RefreshCcw size={13} />} Reintentar sincronizacion
+            {retrying ? <Loader2 size={13} className="animate-spin" /> : <RefreshCcw size={13} />} Reintentar sincronización
+          </button>
+          <button className="ml-2 mt-2 inline-flex items-center gap-2 rounded-lg border border-red-200/30 px-2 py-1" onClick={() => router.refresh()}>
+            <RefreshCcw size={13} /> Actualizar
           </button>
         </div>
       ) : null}
@@ -148,10 +157,11 @@ export function RealtimeNotificationCenter({ branchId }: { branchId?: string | n
   );
 }
 
-function SyncStatus({ status, lastSyncAt }: { status: "connecting" | "synced" | "error"; lastSyncAt: string | null }) {
-  if (status === "connecting") return <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--text-muted)]"><Loader2 size={12} className="animate-spin" /> Conectando...</p>;
-  if (status === "error") return <p className="mt-1 inline-flex items-center gap-1 text-xs text-red-200"><XCircle size={12} /> Error de sincronizacion</p>;
-  return <p className="mt-1 inline-flex items-center gap-1 text-xs text-green-200"><CheckCircle2 size={12} /> Sincronizado {lastSyncAt ? `- ${formatTime(lastSyncAt)}` : ""}</p>;
+function SyncStatus({ status, lastSyncAt }: { status: RealtimeStatus; lastSyncAt: string | null }) {
+  if (status === "connecting" || status === "idle") return <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--text-muted)]"><Loader2 size={12} className="animate-spin" /> Conectando...</p>;
+  if (status === "reconnecting" || status === "error") return <p className="mt-1 inline-flex items-center gap-1 text-xs text-amber-200"><Loader2 size={12} className="animate-spin" /> Reconectando sincronización...</p>;
+  if (status === "disabled") return <p className="mt-1 inline-flex items-center gap-1 text-xs text-red-200"><XCircle size={12} /> Realtime no disponible</p>;
+  return <p className="mt-1 inline-flex items-center gap-1 text-xs text-green-200"><CheckCircle2 size={12} /> Sincronizado {lastSyncAt ? `· última conexión ${formatTime(lastSyncAt)}` : ""}</p>;
 }
 
 function notificationTypeLabel(type: RealtimeNotification["type"]) {
@@ -163,8 +173,7 @@ function notificationTypeLabel(type: RealtimeNotification["type"]) {
     service_order_pending_payment: "Pendiente de pago",
     service_order_paid: "Atencion pagada",
     service_order_voided: "Atencion anulada",
-    stock_changed: "Stock",
-    sync_error: "Sincronizacion"
+    stock_changed: "Stock"
   };
   return labels[type];
 }

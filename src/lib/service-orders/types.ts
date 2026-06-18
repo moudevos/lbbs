@@ -1,4 +1,4 @@
-export type PaymentMethod = "efectivo" | "yape" | "plin" | "tarjeta" | "transferencia" | "mixto";
+export type PaymentMethod = "efectivo" | "yape" | "plin" | "tarjeta" | "transferencia" | "reward" | "mixto";
 
 export type PaymentSplit = {
   method: Exclude<PaymentMethod, "mixto">;

@@ -16,6 +16,7 @@ const summaryMeta: Record<string, { label: string; format: "money" | "percent" |
   assignedPercentage: { label: "Porcentaje asignado", format: "percent" },
   serviceEarnings: { label: "Ganancia por servicios", format: "money" },
   productCredits: { label: "Creditos por productos", format: "money" },
+  rewardIncentives: { label: "Incentivos rewards", format: "money" },
   bonuses: { label: "Bonos", format: "money" },
   totalLiquidation: { label: "Total a liquidar", format: "money" }
 };

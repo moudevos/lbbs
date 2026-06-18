@@ -52,6 +52,11 @@ export async function calculateProductionForPaidOrder(admin: AdminClient, servic
 
   const rows: Record<string, unknown>[] = [];
   const countedAt = new Date().toISOString();
+  const { data: reward } = await admin.from("customer_reward_redemptions")
+    .select("id,barber_id,barber_fixed_earning")
+    .eq("service_order_id", serviceOrderId)
+    .eq("status", "redeemed")
+    .maybeSingle();
 
   for (const item of order.service_order_items ?? []) {
     const itemType = String(item.item_type ?? "");
@@ -59,6 +64,17 @@ export async function calculateProductionForPaidOrder(admin: AdminClient, servic
     if (["service", "custom_service", "manual_extra"].includes(itemType)) {
       const barberId = item.barber_id ?? order.employee_id;
       if (!barberId) continue;
+      if (reward && barberId === reward.barber_id) {
+        rows.push({
+          service_order_id: order.id, service_order_item_id: item.id, reservation_id: order.reservation_id,
+          branch_id: item.branch_id ?? order.branch_id, barber_id: barberId, service_id: item.service_id,
+          customer_id: order.customer_id, entry_type: "reward_classic_cut", gross_amount: 0,
+          deduction_amount: 0, production_amount: 0, percentage: 0,
+          barber_earning: Number(reward.barber_fixed_earning ?? 10), quantity: 1,
+          description: "Incentivo reward corte clasico", counted_at: countedAt, created_by: actorUserId ?? null
+        });
+        continue;
+      }
       const gross = money(item.subtotal ?? item.amount ?? item.unit_price);
       const percentage = await productionPercentage(admin, barberId, order.attended_at ?? countedAt);
       const calculated = calculateServiceProduction({ grossAmount: gross, percentage });

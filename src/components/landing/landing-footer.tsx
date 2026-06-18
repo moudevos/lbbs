@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Facebook, Instagram, MapPin, MessageCircle, Music2 } from "lucide-react";
 import type { LandingBranch, LandingSettings } from "@/lib/public/landing-data";
 import { trackEvent } from "@/lib/analytics/track-event";
+import { resolvePublicSocialLinks } from "@/lib/public/social-links";
 
 const navLinks = [
   { label: "Inicio", href: "#inicio" },
@@ -16,21 +17,15 @@ const navLinks = [
 
 const serviceLinks = ["Corte clásico", "Corte fade", "Barba", "Perfilado"];
 
-const socialIcons = [
-  { matcher: "wa.me", label: "WhatsApp", icon: MessageCircle },
-  { matcher: "whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { matcher: "facebook", label: "Facebook", icon: Facebook },
-  { matcher: "instagram", label: "Instagram", icon: Instagram },
-  { matcher: "tiktok", label: "TikTok", icon: Music2 }
-];
-
 export function LandingFooter({ branches, settings, mainPhone }: { branches: LandingBranch[]; settings: LandingSettings; mainPhone: string | null }) {
-  const socials = settings.socialLinks
-    .filter((href) => /^https?:\/\//.test(href))
-    .map((href) => {
-      const found = socialIcons.find((item) => href.toLowerCase().includes(item.matcher));
-      return { label: found?.label ?? "Red social", href, icon: found?.icon ?? MessageCircle };
-    });
+  const digits = mainPhone?.replace(/\D/g, "") ?? "";
+  const resolved = resolvePublicSocialLinks(settings.socialLinks, digits ? `https://wa.me/${digits.startsWith("51") ? digits : `51${digits}`}` : "");
+  const socials = [
+    { label: "Instagram", href: resolved.instagram, icon: Instagram },
+    { label: "TikTok", href: resolved.tiktok, icon: Music2 },
+    { label: "Facebook", href: resolved.facebook, icon: Facebook },
+    { label: "WhatsApp", href: resolved.whatsapp, icon: MessageCircle }
+  ].filter((item) => item.href);
 
   return (
     <footer id="contacto" className="relative scroll-mt-24 overflow-hidden border-t border-[var(--landing-border)] py-12">
@@ -77,9 +72,8 @@ export function LandingFooter({ branches, settings, mainPhone }: { branches: Lan
               </li>
             )) : <li>Direcciones y horarios personalizables desde el panel de administración.</li>}
           </ul>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {mainPhone ? <a href={`https://wa.me/${mainPhone.replace(/\D/g, "").startsWith("51") ? mainPhone.replace(/\D/g, "") : `51${mainPhone.replace(/\D/g, "")}`}`} onClick={() => trackEvent("whatsapp_click", { location: "footer" })} target="_blank" rel="noreferrer" className="landing-secondary-button inline-flex items-center gap-2 px-3 py-2 text-xs" aria-label="Escribir por WhatsApp a La Bajadita Barber Studio"><MessageCircle size={14} /> WhatsApp</a> : null}
-            {socials.map(({ label, href, icon: Icon }) => <a key={href} href={href} onClick={() => trackEvent("social_click", { network: label, location: "footer" })} className="landing-secondary-button inline-flex items-center gap-2 px-3 py-2 text-xs" aria-label={label} target="_blank" rel="noreferrer"><Icon size={14} /> {label}</a>)}
+          <div className="mt-5 flex items-center gap-3">
+            {socials.map(({ label, href, icon: Icon }) => <a key={label} href={href} onClick={() => trackEvent(label === "WhatsApp" ? "whatsapp_click" : "social_click", { network: label, location: "footer" })} className="grid h-9 w-9 place-items-center rounded-full border border-[var(--landing-border)] bg-black/30 text-[var(--landing-gold-soft)] transition hover:border-[var(--landing-gold-soft)] hover:bg-black/55" aria-label={label} target="_blank" rel="noreferrer"><Icon size={16} /></a>)}
           </div>
         </div>
       </div>

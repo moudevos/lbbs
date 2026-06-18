@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 :root {
   --bg-main: #070707;
   --bg-panel: #121212;

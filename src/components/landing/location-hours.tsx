@@ -27,9 +27,8 @@ export function LocationHours({ branches, mainPhone }: { branches: LandingBranch
             </article>
           )}
         </div>
-        {mainPhone ? <a className="landing-primary-button mt-6 inline-flex items-center gap-2 px-5 py-3 text-sm" href={whatsapp(mainPhone)} target="_blank" rel="noreferrer"><MessageCircle size={16} /> Coordinar por WhatsApp</a> : null}
+        {mainPhone ? <div className="mt-8 flex justify-center"><a className="landing-primary-button inline-flex items-center gap-2 px-5 py-3 text-sm" href={whatsapp(mainPhone)} target="_blank" rel="noreferrer"><MessageCircle size={16} /> Coordinar por WhatsApp</a></div> : null}
       </div>
     </section>
   );
 }
-

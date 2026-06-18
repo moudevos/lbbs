@@ -59,9 +59,9 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
     await load();
   }
 
-  async function redeem(id: string, rewardType: "classic_cut" | "voucher_30") {
-    if (!(await showConfirm("Canjear recompensa", rewardType === "voucher_30" ? "Aplicara vale de S/30." : "Aplicara corte clasico gratis."))) return;
-    const response = await fetch(`/api/control/service-orders/${id}/redeem`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rewardType }) });
+  async function redeem(id: string) {
+    if (!(await showConfirm("Aplicar recompensa", "Aplicará Corte Clásico gratis si la atención contiene ese servicio."))) return;
+    const response = await fetch(`/api/control/service-orders/${id}/redeem`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rewardType: "classic_cut_free" }) });
     const data = await response.json();
     if (!response.ok) return showError("No se pudo canjear", data.error ?? "Sin recompensa disponible.");
     await load();
@@ -112,8 +112,7 @@ export function ServiceOrdersManager({ mine = false, createOpenInitially = false
                 {order.status !== "pagado" && order.status !== "anulado" && !mine ? <Link className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={`/app/control/atenciones/${order.id}?focus=payment`}><ReceiptText size={16} /> Pagar</Link> : null}
                 {Number(rewards?.available_rewards ?? 0) > 0 && order.status !== "anulado" && !mine ? (
                   <>
-                    <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs" onClick={() => redeem(order.id, "classic_cut")}>Corte gratis</button>
-                    <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs" onClick={() => redeem(order.id, "voucher_30")}>Vale S/30</button>
+                    <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs" onClick={() => redeem(order.id)}>Corte clásico gratis</button>
                   </>
                 ) : null}
                 {order.status !== "anulado" && !mine ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-red-200" onClick={() => voidOrder(order.id)}><Trash2 size={16} /> Anular</button> : null}

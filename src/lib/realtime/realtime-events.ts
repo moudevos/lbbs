@@ -6,8 +6,7 @@ export type RealtimeEventType =
   | "service_order_pending_payment"
   | "service_order_paid"
   | "service_order_voided"
-  | "stock_changed"
-  | "sync_error";
+  | "stock_changed";
 
 export type RealtimeNotification = {
   id: string;
@@ -28,8 +27,7 @@ export function eventTitle(type: RealtimeEventType) {
     service_order_pending_payment: "Pendiente de cobro",
     service_order_paid: "Atencion pagada",
     service_order_voided: "Atencion anulada",
-    stock_changed: "Stock actualizado",
-    sync_error: "Error de sincronizacion"
+    stock_changed: "Stock actualizado"
   };
   return labels[type];
 }

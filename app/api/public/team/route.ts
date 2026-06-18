@@ -9,9 +9,10 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("employees")
-    .select("id,first_name,last_name,nickname,specialty,profile_photo_path,profile_photo_url,branch_id,branches(name)")
+    .select("id,first_name,last_name,nickname,specialty,profile_photo_path,profile_photo_url,branch_id,role,can_perform_services,branches(name)")
     .eq("is_active", true)
-    .eq("role", "barbero")
+    .not("branch_id", "is", null)
+    .or("role.eq.barbero,can_perform_services.eq.true")
     .order("first_name");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -26,7 +27,7 @@ export async function GET() {
       });
       return {
         id: employee.id,
-        nickname: employee.nickname || null,
+        nickname: employee.nickname?.trim() || null,
         fullName: `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim(),
         specialty: employee.specialty || "Barbero profesional",
         branchId: employee.branch_id,
