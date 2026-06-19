@@ -19,8 +19,8 @@ export function ControlNavLink({ href, label, icon: Icon, mobile, onNavigate }: 
         onNavigate?.();
         startNavigation(href);
       }}
-      className={`${mobile ? "shrink-0 border" : ""} flex items-center gap-2 rounded-md border-[var(--border-soft)] px-3 py-2 text-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[var(--gold-soft)] ${
-        active ? "bg-[rgba(212,175,55,0.16)] text-white" : "text-[var(--text-muted)] hover:bg-[rgba(212,175,55,0.1)] hover:text-white"
+      className={`${mobile ? "shrink-0 border" : ""} flex items-center gap-2 rounded-xl border-[var(--control-border)] px-3 py-2 text-sm transition duration-200 ease-out hover:border-[var(--control-border-strong)] ${
+        active ? "border-[var(--control-primary-border)] bg-[var(--control-primary-soft)] font-semibold text-[var(--control-primary)]" : "text-[var(--control-muted)] hover:bg-[var(--control-surface-3)] hover:text-[var(--control-text)]"
       }`}
     >
       <Icon size={16} />

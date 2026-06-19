@@ -9,7 +9,7 @@ export function FormField(props: BaseProps & InputHTMLAttributes<HTMLInputElemen
   return (
     <label className="block text-sm text-[var(--text-muted)]">
       {label}
-      <input className={`mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white ${className ?? ""}`} {...inputProps} />
+      <input className={`control-input mt-2 ${className ?? ""}`} {...inputProps} />
     </label>
   );
 }
@@ -19,7 +19,7 @@ export function TextAreaField(props: BaseProps & TextareaHTMLAttributes<HTMLText
   return (
     <label className="block text-sm text-[var(--text-muted)]">
       {label}
-      <textarea className={`mt-2 min-h-20 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white ${className ?? ""}`} {...inputProps} />
+      <textarea className={`control-input mt-2 min-h-20 ${className ?? ""}`} {...inputProps} />
     </label>
   );
 }
@@ -29,7 +29,7 @@ export function SelectField(props: BaseProps & SelectHTMLAttributes<HTMLSelectEl
   return (
     <label className="block text-sm text-[var(--text-muted)]">
       {label}
-      <select className={`mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white ${className ?? ""}`} {...inputProps}>
+      <select className={`control-input mt-2 ${className ?? ""}`} {...inputProps}>
         {children}
       </select>
     </label>

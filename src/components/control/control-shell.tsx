@@ -100,11 +100,11 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
   );
 
   return (
-    <div className="control-app h-screen overflow-hidden bg-[var(--bg-main)]">
+    <div className="control-app h-screen overflow-hidden bg-[var(--control-bg)] text-[var(--control-text)]">
       <ControlThemeProvider />
       <TopProgressBar />
       <div className="flex h-[calc(100%-2px)]">
-        <aside className="control-surface-muted hidden h-full w-72 shrink-0 overflow-y-auto border-r border-[var(--border-soft)] p-4 lg:block">
+        <aside className="control-surface hidden h-full w-72 shrink-0 overflow-y-auto border-r border-[var(--control-border)] p-4 lg:block">
           <Brand />
           {nav}
         </aside>
@@ -118,8 +118,8 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
           {nav}
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="control-surface shrink-0 border-b border-[var(--border-soft)] px-4 py-3 backdrop-blur md:px-6">
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="control-surface shrink-0 border-b border-[var(--control-border)] px-4 py-3 shadow-sm md:px-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <button className="rounded-lg border border-[var(--border-soft)] p-2 lg:hidden" onClick={() => setMobileOpen(true)}><Menu size={18} /></button>
@@ -139,8 +139,8 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
               </div>
             </div>
           </header>
-          <main className="relative min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
-            <div className="transition-opacity duration-200 ease-out">
+          <main className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-[var(--control-bg)]">
+            <div className="mx-auto w-full max-w-[1600px] px-4 py-5 transition-opacity duration-200 ease-out sm:px-6 lg:px-8">
               {isNavigating ? <ModuleRouteSkeleton pathname={targetPathname} /> : children}
             </div>
           </main>

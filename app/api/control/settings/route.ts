@@ -13,7 +13,9 @@ export async function GET() {
     settings: data?.value ?? {
       businessName: "La Bajadita Barber Shop",
       customServiceDurationMinutes: 60,
-      visualTheme: "black-gold",
+      controlTheme: "dark-functional",
+      controlDensity: "comfortable",
+      controlMotion: true,
       phones: [],
       socialLinks: [],
       landingPlaceholders: []

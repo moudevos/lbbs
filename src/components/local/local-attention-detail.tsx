@@ -39,9 +39,9 @@ export function LocalAttentionDetail({ id }: { id: string }) {
   const items = order?.service_order_items ?? [];
 
   return (
-    <main className="min-h-screen bg-black px-4 py-6">
+    <main className="min-h-screen bg-[var(--control-bg)] px-4 py-20 text-[var(--control-text)]">
       <section className="mx-auto grid max-w-5xl gap-5">
-        <div className="rounded-3xl border border-[var(--border-soft)] bg-black/50 p-5">
+        <div className="rounded-3xl border border-[var(--control-border)] bg-[var(--control-surface)] p-5 shadow-[var(--control-shadow)]">
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--gold-soft)]">Modo local</p>
           <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -54,13 +54,13 @@ export function LocalAttentionDetail({ id }: { id: string }) {
         {loading ? <div className="rounded-2xl border border-[var(--border-soft)] p-5 text-sm text-[var(--text-muted)]">Cargando atencion...</div> : null}
         {order ? (
           <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-            <div className="rounded-2xl border border-[var(--border-soft)] bg-black/35 p-4">
+            <div className="rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-[var(--control-shadow)]">
               <h2 className="text-xl font-semibold">{customer?.full_name ?? "Cliente"}</h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">{customer?.phone ?? "Sin celular"} - {branch?.name ?? "Sede"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p>
               <p className="mt-1 text-sm text-[var(--text-muted)]">Estado: {order.status} - Origen: {order.origin}</p>
               <div className="mt-4 grid gap-2">
                 {items.map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-lg border border-[var(--border-soft)] bg-black/25 p-3">
+                  <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-[var(--control-border)] bg-[var(--control-surface-2)] p-3">
                     <div>
                       <p className="font-semibold">{item.name ?? item.description}</p>
                       <p className="text-xs text-[var(--text-muted)]">{item.item_type} x {Number(item.quantity ?? 1)}</p>
@@ -70,7 +70,7 @@ export function LocalAttentionDetail({ id }: { id: string }) {
                 ))}
               </div>
             </div>
-            <aside className="rounded-2xl border border-[var(--border-soft)] bg-black/35 p-4">
+            <aside className="rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-[var(--control-shadow)]">
               <h2 className="font-semibold">Resumen</h2>
               <Row label="Subtotal" value={`S/ ${Number(order.subtotal ?? 0).toFixed(2)}`} />
               <Row label="Descuentos" value={`S/ ${Number(order.discount_amount ?? 0).toFixed(2)}`} />

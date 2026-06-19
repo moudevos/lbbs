@@ -79,13 +79,13 @@ export function LocalNewAttention() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 py-6">
+    <main className="min-h-screen bg-[var(--control-bg)] px-4 py-20 text-[var(--control-text)]">
       <section className="mx-auto grid max-w-6xl gap-5">
         <Header />
-        {loading ? <div className="rounded-2xl border border-[var(--border-soft)] bg-black/35 p-6 text-sm text-[var(--text-muted)]">Cargando datos locales...</div> : null}
+        {loading ? <div className="rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-6 text-sm text-[var(--control-muted)]">Cargando datos locales...</div> : null}
         <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
           <div className="grid gap-4">
-            <div className="rounded-2xl border border-[var(--border-soft)] bg-black/35 p-4">
+            <div className="rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-[var(--control-shadow)]">
               <h2 className="font-semibold">Cliente y barbero</h2>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <Input label="Celular cliente" value={form.customerPhone} onChange={(value) => setForm({ ...form, customerPhone: value })} />
@@ -96,7 +96,7 @@ export function LocalNewAttention() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[var(--border-soft)] bg-black/35 p-4">
+            <div className="rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-[var(--control-shadow)]">
               <h2 className="font-semibold">Adicionales</h2>
               <div className="mt-3 grid gap-2 md:grid-cols-[1fr_140px_auto]">
                 <Input label="Nombre" value={additionName} onChange={setAdditionName} />
@@ -111,7 +111,7 @@ export function LocalNewAttention() {
               {additions.map((item, index) => <p key={index} className="mt-2 text-sm text-[var(--text-muted)]">{item.name}: S/ {item.amount.toFixed(2)}</p>)}
             </div>
 
-            <div className="rounded-2xl border border-[var(--border-soft)] bg-black/35 p-4">
+            <div className="rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-[var(--control-shadow)]">
               <h2 className="font-semibold">Productos / snacks</h2>
               <div className="mt-3 grid gap-2 md:grid-cols-[1fr_120px_1fr_auto]">
                 <Select label="Producto" value={productId} onChange={setProductId} options={products.map((product) => ({ value: product.id, label: `${product.name} - S/ ${Number(product.sale_price).toFixed(2)}` }))} />
@@ -133,7 +133,7 @@ export function LocalNewAttention() {
             </div>
           </div>
 
-          <aside className="grid h-max gap-4 rounded-2xl border border-[var(--border-soft)] bg-black/35 p-4">
+          <aside className="grid h-max gap-4 rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-[var(--control-shadow)]">
             <AttentionDraftSummary total={total} itemsCount={(form.serviceId ? 1 : 0) + additions.length + productItems.length} />
             <AttentionSaveBar saving={saving} onClick={save} />
           </aside>
@@ -145,7 +145,7 @@ export function LocalNewAttention() {
 
 function Header() {
   return (
-    <div className="rounded-3xl border border-[var(--border-soft)] bg-black/50 p-5">
+    <div className="rounded-3xl border border-[var(--control-border)] bg-[var(--control-surface)] p-5 shadow-[var(--control-shadow)]">
       <p className="text-xs uppercase tracking-[0.2em] text-[var(--gold-soft)]">Modo local</p>
       <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -159,9 +159,9 @@ function Header() {
 }
 
 function Input({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
-  return <label className="text-sm text-[var(--text-muted)]">{label}<input className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+  return <label className="text-sm text-[var(--control-muted)]">{label}<input className="control-input mt-2" type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
-  return <label className="text-sm text-[var(--text-muted)]">{label}<select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={value} onChange={(event) => onChange(event.target.value)}><option value="">Seleccionar</option>{options.map((option) => <option key={`${label}-${option.value || "none"}`} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className="text-sm text-[var(--control-muted)]">{label}<select className="control-input mt-2" value={value} onChange={(event) => onChange(event.target.value)}><option value="">Seleccionar</option>{options.map((option) => <option key={`${label}-${option.value || "none"}`} value={option.value}>{option.label}</option>)}</select></label>;
 }

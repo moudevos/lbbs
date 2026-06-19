@@ -101,7 +101,7 @@ export function RealtimeNotificationCenter({ branchId, onStatusChange }: { branc
   const panel = open && mounted ? createPortal(
     <div
       ref={panelRef}
-      className="fixed right-4 top-16 z-[1200] w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-[var(--border-soft)] bg-black/95 p-4 shadow-2xl shadow-black/70 backdrop-blur-xl md:right-6 md:top-20"
+      className="fixed right-4 top-16 z-[1200] max-h-[calc(100vh-5rem)] w-[min(420px,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 text-[var(--control-text)] shadow-[var(--control-shadow)] md:right-6 md:top-20"
       role="dialog"
       aria-label="Centro de notificaciones"
     >
@@ -127,13 +127,13 @@ export function RealtimeNotificationCenter({ branchId, onStatusChange }: { branc
       <div className="grid max-h-[min(70vh,28rem)] gap-2 overflow-y-auto pr-1">
         {loading || retrying ? <p className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs text-[var(--text-muted)]"><Loader2 size={14} className="animate-spin" /> Cargando notificaciones...</p> : null}
         {items.map((item) => (
-          <article key={item.id} className={`rounded-xl border px-3 py-2 text-sm ${item.read ? "border-[var(--border-soft)] bg-black/30" : "border-[var(--gold)] bg-[rgba(212,175,55,0.08)]"}`}>
+          <article key={item.id} className={`rounded-xl border px-3 py-2 text-sm ${item.read ? "border-[var(--control-border)] bg-[var(--control-surface-2)]" : "border-[var(--control-primary-border)] bg-[var(--control-primary-soft)]"}`}>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--gold-soft)]">{notificationTypeLabel(item.type)}</p>
                 <p className="font-semibold">{item.title}</p>
               </div>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] ${item.read ? "bg-white/5 text-[var(--text-muted)]" : "bg-[var(--gold)] text-black"}`}>{item.read ? "Leida" : "Nueva"}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] ${item.read ? "bg-[var(--control-surface-3)] text-[var(--control-muted)]" : "bg-[var(--control-primary)] text-[#17130a]"}`}>{item.read ? "Leida" : "Nueva"}</span>
             </div>
             <p className="mt-1 text-xs text-[var(--text-muted)]">{item.message}</p>
             <div className="mt-2 flex items-center justify-between gap-2 text-xs">

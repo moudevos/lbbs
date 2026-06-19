@@ -6,6 +6,8 @@ import QRCode from "qrcode";
 import type { BranchOption } from "@/lib/reservations/types";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import { ButtonSpinner, TableSkeleton } from "@/components/ui/loading-state";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { ControlButton, ControlCard, ControlInput } from "@/components/ui/control-primitives";
 
 type Device = Record<string, any>;
 
@@ -30,6 +32,7 @@ export function LocalDevicesManager() {
   }
 
   async function create() {
+    if (saving) return;
     setSaving(true);
     const response = await fetch("/api/control/local-devices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editing) });
     const data = await response.json();
@@ -54,38 +57,24 @@ export function LocalDevicesManager() {
     await load();
   }
 
-  async function copyLink() {
-    if (!lastLink) return;
-    await navigator.clipboard.writeText(lastLink);
-    await showSuccess("Link copiado");
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   return (
-    <section className="grid gap-5">
-      <div>
-        <h1 className="text-3xl font-semibold">Dispositivos locales</h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">Conecta tablets o kioskos por sede con token limitado.</p>
-      </div>
-      <div className="rounded-2xl border border-[var(--border-soft)] bg-black/35 p-4">
+    <section className="grid min-w-0 gap-5">
+      <div><h1 className="text-3xl font-semibold">Dispositivos locales</h1><p className="mt-1 text-sm text-[var(--control-muted)]">Conecta tablets o kioskos por sede con token limitado.</p></div>
+      <ControlCard className="p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Nombre del dispositivo" value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
-          <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={editing.branchId} onChange={(event) => setEditing({ ...editing, branchId: event.target.value })}>
-            <option value="">Sede</option>
-            {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-          </select>
-          <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" disabled={saving} onClick={create}>{saving ? <ButtonSpinner /> : null} Crear</button>
+          <ControlInput placeholder="Nombre del dispositivo" value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
+          <select className="control-input" value={editing.branchId} onChange={(event) => setEditing({ ...editing, branchId: event.target.value })}><option value="">Sede</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select>
+          <ControlButton variant="primary" disabled={saving} onClick={create}>{saving ? <ButtonSpinner /> : null} Crear</ControlButton>
         </div>
-        {lastLink ? <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center"><div className="flex-1 rounded-lg border border-[var(--border-soft)] bg-black/40 p-3 text-xs text-[var(--gold-soft)]">Enlace de conexión generado. El token queda embebido en el QR/link y no se muestra en texto plano.</div><button className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={copyLink}>Copiar link seguro</button>{qr ? <Image src={qr} alt="QR dispositivo" width={128} height={128} className="rounded-lg bg-white p-2" /> : null}</div> : null}
-      </div>
+        {lastLink ? <div className="mt-5 grid min-w-0 gap-4 md:grid-cols-[1fr_auto_auto] md:items-center"><div className="break-words rounded-xl border border-[var(--control-info)] bg-[var(--control-info-soft)] p-3 text-xs text-[var(--control-info)]">Enlace de conexion generado. El token permanece oculto dentro del QR/link.</div><ControlButton onClick={async () => { await navigator.clipboard.writeText(lastLink); await showSuccess("Link copiado"); }}>Copiar link seguro</ControlButton>{qr ? <div className="mx-auto rounded-xl border border-[var(--control-border)] bg-white p-2"><Image src={qr} alt="QR dispositivo" width={128} height={128} className="max-w-full" /></div> : null}</div> : null}
+      </ControlCard>
       {loading ? <TableSkeleton /> : null}
-      <div className="grid gap-2">
+      <div className="grid min-w-0 gap-3">
         {devices.map((device) => {
           const branch = Array.isArray(device.branches) ? device.branches[0] : device.branches;
-          return <article key={device.id} className="rounded-xl border border-[var(--border-soft)] bg-black/35 p-4"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="font-semibold">{device.device_name}</p><p className="text-sm text-[var(--text-muted)]">{device.device_code} - {branch?.name ?? "Sede"} - {device.status}</p><p className="text-xs text-[var(--text-muted)]">Ultimo acceso: {device.last_seen_at ? new Date(device.last_seen_at).toLocaleString("es-PE") : "Nunca"}</p></div><div className="flex gap-2"><button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={() => action(device.id, "regenerate")}>Regenerar token</button><button className="rounded-lg border border-red-400/40 px-3 py-2 text-sm text-red-200" onClick={() => action(device.id, "revoke")}>Revocar</button></div></div></article>;
+          return <ControlCard key={device.id} className="p-4"><div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between"><div className="min-w-0"><p className="truncate font-semibold">{device.device_name}</p><div className="mt-2 flex flex-wrap items-center gap-2"><span className="break-all text-sm text-[var(--control-muted)]">{device.device_code}</span><span className="text-sm text-[var(--control-muted)]">{branch?.name ?? "Sede"}</span><StatusBadge label={device.status} /></div><p className="mt-1 text-xs text-[var(--control-muted-2)]">Ultimo acceso: {device.last_seen_at ? new Date(device.last_seen_at).toLocaleString("es-PE") : "Nunca"}</p></div><div className="flex flex-wrap gap-2"><ControlButton onClick={() => action(device.id, "regenerate")}>Regenerar token</ControlButton><ControlButton variant="danger" onClick={() => action(device.id, "revoke")}>Revocar</ControlButton></div></div></ControlCard>;
         })}
       </div>
     </section>

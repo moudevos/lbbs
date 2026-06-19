@@ -8,16 +8,16 @@ export default async function ControlHome() {
   const modules = employee ? getModulesForRole(employee.role) : [];
 
   return (
-    <section className="grid gap-5">
+    <section className="min-w-0 grid gap-6">
       {employee?.role !== "barbero" ? (
-        <div className="grid gap-3 md:grid-cols-3">
-          <Link className="rounded-lg bg-[var(--gold)] p-4 font-semibold text-black" href="/app/control/atenciones/nueva">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <Link className="rounded-2xl bg-[var(--control-primary)] p-5 font-semibold text-[#17130a] transition hover:bg-[var(--control-primary-hover)]" href="/app/control/atenciones/nueva">
             Registrar atención
           </Link>
-          <Link className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4 font-semibold" href="/app/control/caja">
+          <Link className="control-card rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-5 font-semibold transition hover:border-[var(--control-primary)]" href="/app/control/caja">
             Ver caja
           </Link>
-          <Link className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4 font-semibold" href="/app/control/reservas">
+          <Link className="control-card rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-5 font-semibold transition hover:border-[var(--control-primary)]" href="/app/control/reservas">
             Nueva reserva
           </Link>
         </div>
@@ -25,11 +25,11 @@ export default async function ControlHome() {
 
       <DashboardSummary />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {modules.map((module) => (
-          <Link key={module.href} href={module.href} className="glass-panel gold-border rounded-lg p-5">
-            <h2 className="text-lg font-semibold">{module.label}</h2>
-            <p className="mt-2 text-sm text-[var(--text-muted)]">Modulo habilitado para tu rol.</p>
+          <Link key={module.href} href={module.href} className="control-card min-w-0 rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-5 transition hover:-translate-y-0.5 hover:border-[var(--control-primary)]">
+            <h2 className="truncate text-lg font-semibold">{module.label}</h2>
+            <p className="mt-2 text-sm text-[var(--control-muted)]">Modulo habilitado para tu rol.</p>
           </Link>
         ))}
       </div>

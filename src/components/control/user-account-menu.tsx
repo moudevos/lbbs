@@ -1,15 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { CheckCircle2, ChevronDown, Loader2, LogOut, Moon, Sun, UserRound, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2, LogOut, Palette, UserRound, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import type { CurrentEmployee } from "@/lib/auth/types";
 import type { RealtimeStatus } from "@/lib/realtime/realtime-client";
 import { createClient } from "@/lib/supabase/client";
-
-const COLOR_MODE_KEY = "lbbs:colorMode";
+import { CONTROL_THEME_KEY } from "./control-theme-provider";
 
 export function UserAccountMenu({ employee, syncStatus, lastSyncAt }: { employee: CurrentEmployee; syncStatus: RealtimeStatus; lastSyncAt: string | null }) {
   const router = useRouter();
@@ -17,12 +16,12 @@ export function UserAccountMenu({ employee, syncStatus, lastSyncAt }: { employee
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [colorMode, setColorMode] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState("dark-functional");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setColorMode(localStorage.getItem(COLOR_MODE_KEY) === "light" ? "light" : "dark");
+    setTheme(localStorage.getItem(CONTROL_THEME_KEY) ?? "dark-functional");
   }, []);
 
   useEffect(() => {
@@ -36,12 +35,10 @@ export function UserAccountMenu({ employee, syncStatus, lastSyncAt }: { employee
     return () => window.removeEventListener("pointerdown", close);
   }, [open]);
 
-  function toggleTheme() {
-    const next = colorMode === "dark" ? "light" : "dark";
-    setColorMode(next);
-    localStorage.setItem(COLOR_MODE_KEY, next);
-    document.documentElement.dataset.controlColorMode = next;
-    window.dispatchEvent(new CustomEvent("control-color-mode-change", { detail: next }));
+  function changeTheme(next: string) {
+    setTheme(next);
+    localStorage.setItem(CONTROL_THEME_KEY, next);
+    window.dispatchEvent(new CustomEvent("control-preferences-change", { detail: { theme: next } }));
   }
 
   async function logout() {
@@ -58,7 +55,7 @@ export function UserAccountMenu({ employee, syncStatus, lastSyncAt }: { employee
       ref={panelRef}
       role="dialog"
       aria-label="Menú de usuario"
-      className="fixed right-4 top-20 z-[1500] max-h-[calc(100vh-6rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-panel)] p-4 text-[var(--text-main)] shadow-2xl shadow-black/70 md:right-6"
+      className="fixed right-4 top-20 z-[1500] max-h-[calc(100vh-6rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 text-[var(--control-text)] shadow-[var(--control-shadow)] md:right-6"
     >
       <div className="flex items-center gap-3 border-b border-[var(--border-soft)] pb-4">
         <Avatar employee={employee} large />
@@ -76,11 +73,15 @@ export function UserAccountMenu({ employee, syncStatus, lastSyncAt }: { employee
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">Sincronización</p>
         <SyncState status={syncStatus} lastSyncAt={lastSyncAt} />
       </div>
-      <button type="button" onClick={toggleTheme} className="mt-3 flex w-full items-center justify-between rounded-xl border border-[var(--border-soft)] px-3 py-2 text-sm">
-        <span className="inline-flex items-center gap-2">{colorMode === "dark" ? <Moon size={16} /> : <Sun size={16} />} Tema {colorMode === "dark" ? "oscuro" : "claro"}</span>
-        <span className="text-xs text-[var(--text-muted)]">Cambiar</span>
-      </button>
-      <button type="button" disabled={loggingOut} onClick={logout} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/30 px-3 py-2 text-sm text-red-400 disabled:opacity-60">
+      <label className="mt-3 block text-sm text-[var(--control-muted)]">
+        <span className="inline-flex items-center gap-2"><Palette size={16} /> Tema operativo</span>
+        <select className="control-input mt-2" value={theme} onChange={(event) => changeTheme(event.target.value)}>
+          <option value="dark-functional">Funcional oscuro</option>
+          <option value="light-operational">Claro operativo</option>
+          <option value="high-contrast">Alto contraste</option>
+        </select>
+      </label>
+      <button type="button" disabled={loggingOut} onClick={logout} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--control-danger)] bg-[var(--control-danger-soft)] px-3 py-2 text-sm text-[var(--control-danger)] disabled:opacity-60">
         {loggingOut ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />} {loggingOut ? "Saliendo..." : "Cerrar sesión"}
       </button>
     </div>,

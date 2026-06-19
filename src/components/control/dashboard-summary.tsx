@@ -46,14 +46,14 @@ export function DashboardSummary() {
   }, []);
 
   if (loading) {
-    return <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-24 animate-pulse rounded-lg border border-[var(--border-soft)] bg-black/35" />)}</div>;
+    return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{Array.from({ length: 10 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)]" />)}</div>;
   }
 
   if (!data) return null;
 
   return (
     <section className="grid gap-4">
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Metric icon={TrendingUp} label="Ventas hoy" value={`S/ ${data.today.totalSales.toFixed(2)}`} />
         <Metric icon={BarChart3} label="Ventas semana" value={`S/ ${data.week.totalSales.toFixed(2)}`} />
         <Metric icon={BarChart3} label="Ventas mes" value={`S/ ${data.month.totalSales.toFixed(2)}`} />
@@ -66,7 +66,7 @@ export function DashboardSummary() {
         <Metric icon={TrendingUp} label="Ganancia mes" value={`S/ ${data.production.earningsMonth.toFixed(2)}`} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Panel title="Ranking de barberos">
           {data.barberRanking.slice(0, 8).map((barber) => (
             <div key={barber.barber} className="flex items-center justify-between rounded-lg border border-[var(--border-soft)] bg-black/25 px-3 py-2 text-sm">
@@ -110,11 +110,11 @@ export function DashboardSummary() {
 }
 
 function Metric({ icon: Icon, label, value }: { icon: typeof TrendingUp; label: string; value: string }) {
-  return <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-3"><Icon size={17} className="text-[var(--gold)]" /><p className="mt-2 text-xs text-[var(--text-muted)]">{label}</p><p className="mt-1 text-xl font-semibold text-white">{value}</p></div>;
+  return <div className="control-card min-w-0 rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-sm"><Icon size={18} className="text-[var(--control-primary)]" /><p className="mt-3 truncate text-xs font-medium uppercase tracking-wide text-[var(--control-muted)]">{label}</p><p className="mt-1 truncate text-xl font-semibold text-[var(--control-text)]">{value}</p></div>;
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4"><div className="mb-3 flex items-center gap-2"><Clock3 size={16} className="text-[var(--gold)]" /><h2 className="font-semibold">{title}</h2></div><div className="grid gap-2">{children}</div></section>;
+  return <section className="control-card min-w-0 rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4 shadow-sm"><div className="mb-4 flex items-center gap-2"><Clock3 size={17} className="text-[var(--control-primary)]" /><h2 className="truncate font-semibold">{title}</h2></div><div className="grid min-w-0 gap-2">{children}</div></section>;
 }
 
 function initials(name: string) {

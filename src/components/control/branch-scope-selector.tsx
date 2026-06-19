@@ -20,7 +20,7 @@ export function BranchScopeSelector({ role, branchName }: { role: AppRole; branc
 
   if (role !== "admin") {
     return (
-      <span className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-muted)]">
+      <span className="inline-flex items-center gap-2 rounded-xl border border-[var(--control-border)] bg-[var(--control-surface-2)] px-3 py-2 text-sm text-[var(--control-muted)]">
         <Store size={16} />
         {branchName ?? "Sin sede"}
       </span>
@@ -28,7 +28,7 @@ export function BranchScopeSelector({ role, branchName }: { role: AppRole; branc
   }
 
   return (
-    <label className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-muted)]">
+    <label className="inline-flex items-center gap-2 rounded-xl border border-[var(--control-border)] bg-[var(--control-surface-2)] px-3 py-2 text-sm text-[var(--control-muted)]">
       <Store size={16} />
       <select
         className="bg-transparent text-[var(--text-main)] outline-none"
