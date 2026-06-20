@@ -1,11 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isRewardEligibleOrder } from "./is-reward-eligible-order";
+import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
 
 type AdminClient = SupabaseClient<any, "public", any>;
 export const VISITS_PER_REWARD = 6;
 export const REWARD_BARBER_EARNING = 10;
 
 export async function syncRewardAccount(admin: AdminClient, customerId: string) {
+  const { data: customer } = await admin.from("customers").select("phone,normalized_phone").eq("id", customerId).maybeSingle();
+  if (isGenericCustomerPhone(customer?.normalized_phone ?? customer?.phone)) {
+    await admin.from("customer_reward_accounts").upsert({
+      customer_id: customerId, eligible_visit_count: 0, earned_rewards: 0,
+      redeemed_rewards: 0, available_rewards: 0, updated_at: new Date().toISOString()
+    }, { onConflict: "customer_id" });
+    return { eligibleVisitCount: 0, earnedRewards: 0, redeemedRewards: 0, availableRewards: 0, progress: 0, reason: "Cliente generico no participa en rewards." };
+  }
   const { data: orders } = await admin
     .from("service_orders")
     .select("id,status,total,voided_at,reward_redemption_id,service_order_items(item_type,subtotal,amount)")
@@ -35,10 +44,14 @@ export async function syncRewardAccount(admin: AdminClient, customerId: string) 
 export async function countServiceOrderVisitOnce(admin: AdminClient, serviceOrderId: string, createdBy?: string | null) {
   const { data: order, error } = await admin
     .from("service_orders")
-    .select("id,customer_id,branch_id,status,total,voided_at,reward_redemption_id,visit_counted_at,service_order_items(item_type,subtotal,amount)")
+    .select("id,customer_id,branch_id,status,total,voided_at,reward_redemption_id,visit_counted_at,customers(phone,normalized_phone),service_order_items(item_type,subtotal,amount)")
     .eq("id", serviceOrderId)
     .maybeSingle();
   if (error || !order?.customer_id) return { counted: false, error: error?.message };
+  const customer = Array.isArray(order.customers) ? order.customers[0] : order.customers;
+  if (isGenericCustomerPhone(customer?.normalized_phone ?? customer?.phone)) {
+    return { counted: false, error: "Cliente generico no participa en rewards." };
+  }
   const eligibility = isRewardEligibleOrder(order);
   if (!eligibility.eligible) return { counted: false, error: eligibility.reason };
   if (order.visit_counted_at) return { counted: false };
@@ -66,9 +79,11 @@ export async function countServiceOrderVisitOnce(admin: AdminClient, serviceOrde
 
 export async function applyClassicCutReward(admin: AdminClient, serviceOrderId: string, createdBy?: string | null) {
   const { data: order } = await admin.from("service_orders")
-    .select("id,customer_id,branch_id,employee_id,status,total,discount_amount,reward_redemption_id,service_order_items(id,item_type,name,description,subtotal,barber_id)")
+    .select("id,customer_id,branch_id,employee_id,status,total,discount_amount,reward_redemption_id,customers(phone,normalized_phone),service_order_items(id,item_type,name,description,subtotal,barber_id)")
     .eq("id", serviceOrderId).maybeSingle();
   if (!order?.customer_id) return { error: "Atencion o cliente no encontrado" };
+  const rewardCustomer = Array.isArray(order.customers) ? order.customers[0] : order.customers;
+  if (isGenericCustomerPhone(rewardCustomer?.normalized_phone ?? rewardCustomer?.phone)) return { error: "Cliente generico no participa en rewards." };
   if (!["registrado", "pendiente_pago"].includes(order.status)) return { error: "Solo se aplica antes de pagar" };
   if (order.reward_redemption_id) return { error: "La atencion ya tiene reward aplicado" };
   const classic = (order.service_order_items ?? []).find((item: any) => {

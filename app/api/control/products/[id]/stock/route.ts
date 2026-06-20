@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const movementPayload = {
     product_id: params.id,
     branch_id: branchId,
-    movement_type: movementKind,
+    movement_type: "adjustment",
     movement_kind: movementKind,
     quantity,
     quantity_delta: delta,
@@ -64,7 +64,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .select("id")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    await context.admin.from("product_branch_stock").upsert({
+      product_id: params.id,
+      branch_id: branchId,
+      stock_current: previousStock,
+      stock_minimum: Number(stock?.stock_minimum ?? body.stockMinimum ?? 0),
+      updated_at: new Date().toISOString()
+    }, { onConflict: "product_id,branch_id" });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   await writeAuditLog(context.admin, {
     actorUserId: context.employee.userId,

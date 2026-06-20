@@ -26,7 +26,6 @@
   --control-primary: #eab308;
   --control-primary-hover: #facc15;
   --control-primary-text: #17130a;
-  --control-primary-text: #17130a;
   --control-primary-soft: rgba(234, 179, 8, 0.14);
   --control-primary-border: rgba(234, 179, 8, 0.42);
   --control-danger: #f87171;
@@ -53,32 +52,31 @@
 }
 
 [data-control-theme="light-operational"] {
-  --control-bg: #eef2f6;
-  --control-bg-soft: #f6f8fb;
-  --control-surface: #ffffff;
-  --control-surface-2: #f8fafc;
-  --control-surface-3: #edf2f7;
-  --control-border: #cbd5e1;
-  --control-border-strong: #94a3b8;
-  --control-text: #0f172a;
-  --control-text-strong: #020617;
-  --control-muted: #475569;
-  --control-muted-2: #64748b;
-  --control-primary: #b77900;
-  --control-primary-hover: #a16207;
+  --control-bg: #f3f1ec;
+  --control-bg-soft: #ebe7df;
+  --control-surface: #fffefa;
+  --control-surface-2: #f7f4ee;
+  --control-surface-3: #ece7dc;
+  --control-border: #d6d0c4;
+  --control-border-strong: #aaa092;
+  --control-text: #24211c;
+  --control-text-strong: #11100d;
+  --control-muted: #665f55;
+  --control-muted-2: #81786b;
+  --control-primary: #9a6b08;
+  --control-primary-hover: #7b5204;
   --control-primary-text: #ffffff;
-  --control-primary-text: #ffffff;
-  --control-primary-soft: #fff4cc;
-  --control-primary-border: #dfaa22;
-  --control-danger: #dc2626;
-  --control-danger-soft: #fee2e2;
-  --control-success: #15803d;
-  --control-success-soft: #dcfce7;
-  --control-info: #0369a1;
-  --control-info-soft: #e0f2fe;
-  --control-warning: #b45309;
-  --control-warning-soft: #fef3c7;
-  --control-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --control-primary-soft: #f5e8bd;
+  --control-primary-border: #c99b2e;
+  --control-danger: #b42318;
+  --control-danger-soft: #fee4e2;
+  --control-success: #167344;
+  --control-success-soft: #dff4e8;
+  --control-info: #175f8c;
+  --control-info-soft: #e0eff8;
+  --control-warning: #98540d;
+  --control-warning-soft: #fff0cf;
+  --control-shadow: 0 12px 30px rgba(58, 48, 35, 0.09);
 }
 
 [data-control-theme="high-contrast"] {
@@ -94,7 +92,6 @@
   --control-muted-2: #d4d4d4;
   --control-primary: #ffe600;
   --control-primary-hover: #fff36b;
-  --control-primary-text: #000000;
   --control-primary-text: #000000;
   --control-danger: #ff5252;
   --control-success: #49ff7a;
@@ -172,6 +169,99 @@
 .control-input:focus {
   border-color: var(--control-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--control-primary) 20%, transparent);
+}
+
+[data-control-theme="light-operational"] .control-app [class*="bg-black"],
+[data-control-theme="light-operational"] .local-app [class*="bg-black"] {
+  background-color: var(--control-surface-2) !important;
+}
+
+[data-control-theme="light-operational"] .control-app [class*="text-white"],
+[data-control-theme="light-operational"] .local-app [class*="text-white"] {
+  color: var(--control-text) !important;
+}
+
+[data-control-theme="light-operational"] .control-app button[class*="bg-[var(--gold)]"],
+[data-control-theme="light-operational"] .control-app a[class*="bg-[var(--gold)]"],
+[data-control-theme="light-operational"] .local-app button[class*="bg-[var(--gold)]"],
+[data-control-theme="light-operational"] .local-app a[class*="bg-[var(--gold)]"] {
+  color: #ffffff !important;
+}
+
+[data-control-theme="light-operational"] .control-app,
+[data-control-theme="light-operational"] .local-app {
+  color-scheme: light;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(201, 155, 46, 0.09), transparent 28rem),
+    var(--control-bg);
+}
+
+[data-control-theme="light-operational"] .control-surface {
+  background: rgba(255, 254, 250, 0.96);
+}
+
+[data-control-theme="light-operational"] .control-surface-muted {
+  background: var(--control-surface-2);
+}
+
+[data-control-theme="light-operational"] .control-app [class*="bg-[#0b0b0b]"],
+[data-control-theme="light-operational"] .local-app [class*="bg-[#0b0b0b]"],
+[data-control-theme="light-operational"] .control-app [class*="bg-[var(--bg-main)]"],
+[data-control-theme="light-operational"] .local-app [class*="bg-[var(--bg-main)]"] {
+  background-color: var(--control-surface) !important;
+  color: var(--control-text) !important;
+}
+
+[data-control-theme="light-operational"] .control-app input:not([type="checkbox"]):not([type="radio"]),
+[data-control-theme="light-operational"] .control-app select,
+[data-control-theme="light-operational"] .control-app textarea,
+[data-control-theme="light-operational"] .local-app input:not([type="checkbox"]):not([type="radio"]),
+[data-control-theme="light-operational"] .local-app select,
+[data-control-theme="light-operational"] .local-app textarea {
+  border-color: #cfc7ba !important;
+  background-color: #faf8f3 !important;
+  color: #24211c !important;
+  box-shadow: inset 0 1px 2px rgba(58, 48, 35, 0.04);
+}
+
+[data-control-theme="light-operational"] .control-app input::placeholder,
+[data-control-theme="light-operational"] .control-app textarea::placeholder,
+[data-control-theme="light-operational"] .local-app input::placeholder,
+[data-control-theme="light-operational"] .local-app textarea::placeholder {
+  color: #8a8175 !important;
+}
+
+[data-control-theme="light-operational"] .control-app article,
+[data-control-theme="light-operational"] .control-app section[class*="border"],
+[data-control-theme="light-operational"] .local-app article,
+[data-control-theme="light-operational"] .local-app section[class*="border"] {
+  border-color: var(--control-border);
+}
+
+[data-control-theme="light-operational"] .control-app table tbody tr:hover {
+  background: #f6f0e4;
+}
+
+[data-control-theme="light-operational"] .control-app pre {
+  background: #eee9df !important;
+  color: #373129 !important;
+}
+
+[data-control-theme="light-operational"] .control-app [class*="text-red-200"],
+[data-control-theme="light-operational"] .local-app [class*="text-red-200"] {
+  color: var(--control-danger) !important;
+}
+
+[data-control-theme="light-operational"] .control-app [class*="text-green-300"],
+[data-control-theme="light-operational"] .local-app [class*="text-green-300"] {
+  color: var(--control-success) !important;
+}
+
+[data-control-theme="light-operational"] .control-app [class*="text-amber-100"],
+[data-control-theme="light-operational"] .control-app [class*="text-amber-200"],
+[data-control-theme="light-operational"] .local-app [class*="text-amber-100"],
+[data-control-theme="light-operational"] .local-app [class*="text-amber-200"] {
+  color: var(--control-warning) !important;
 }
 
 .control-app input:not([type="checkbox"]):not([type="radio"]),
@@ -816,6 +906,34 @@ body {
   border: 1px solid var(--border-strong) !important;
   color: var(--text-main) !important;
   font-weight: 600 !important;
+}
+
+[data-control-theme="light-operational"] .control-app .glass-panel,
+[data-control-theme="light-operational"] .local-app .glass-panel {
+  border-color: var(--control-border);
+  background: rgba(255, 254, 250, 0.97);
+  color: var(--control-text);
+  box-shadow: var(--control-shadow);
+}
+
+[data-control-theme="light-operational"] .lbbs-swal-popup {
+  border-color: var(--control-primary-border) !important;
+  background: #fffefa !important;
+  color: var(--control-text) !important;
+  box-shadow: 0 28px 70px -28px rgba(58, 48, 35, 0.3) !important;
+}
+
+[data-control-theme="light-operational"] .lbbs-swal-title {
+  color: var(--control-text-strong) !important;
+}
+
+[data-control-theme="light-operational"] .lbbs-swal-text {
+  color: var(--control-muted) !important;
+}
+
+[data-control-theme="light-operational"] .lbbs-swal-cancel {
+  border-color: var(--control-border-strong) !important;
+  color: var(--control-text) !important;
 }
 @keyframes galleryFade {
   from {

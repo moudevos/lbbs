@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { resolveBranchScope } from "@/lib/branch-scope/branch-scope";
+import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
 
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({
-    rewards: (data ?? []).map((customer: any) => {
+    rewards: (data ?? []).filter((customer: any) => !isGenericCustomerPhone(customer.phone)).map((customer: any) => {
       const stats = Array.isArray(customer.customer_visit_stats) ? customer.customer_visit_stats[0] : customer.customer_visit_stats;
       const account = Array.isArray(customer.customer_reward_accounts) ? customer.customer_reward_accounts[0] : customer.customer_reward_accounts;
       return {

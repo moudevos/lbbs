@@ -1,5 +1,5 @@
-import { ServiceOrdersManager } from "@/components/service-orders/service-orders-manager";
+import { NewAttentionCart } from "@/components/service-orders/new-attention-cart";
 
 export default function NuevaAtencionPage() {
-  return <ServiceOrdersManager createOpenInitially />;
+  return <NewAttentionCart />;
 }

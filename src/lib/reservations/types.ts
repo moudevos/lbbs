@@ -25,6 +25,8 @@ export type ReservationSummary = {
   id: string;
   status: ReservationStatus;
   source: string;
+  createdAt: string;
+  contactedAt: string | null;
   startsAt: string;
   endsAt: string;
   price: number | null;

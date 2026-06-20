@@ -1,5 +1,7 @@
+import { combinePeruDateAndTime, peruDayRange, PERU_TIME_ZONE } from "@/lib/datetime/peru-time";
+
 export function toLocalDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00`);
+  return combinePeruDateAndTime(date, time);
 }
 
 export function addMinutes(date: Date, minutes: number) {
@@ -15,20 +17,17 @@ export function formatTime(dateIso: string) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "America/Lima"
+    timeZone: PERU_TIME_ZONE
   }).format(new Date(dateIso));
 }
 
 export function formatDate(dateIso: string) {
   return new Intl.DateTimeFormat("es-PE", {
     dateStyle: "medium",
-    timeZone: "America/Lima"
+    timeZone: PERU_TIME_ZONE
   }).format(new Date(dateIso));
 }
 
 export function dateRangeForDay(date: string) {
-  return {
-    from: new Date(`${date}T00:00:00`).toISOString(),
-    to: new Date(`${date}T23:59:59`).toISOString()
-  };
+  return peruDayRange(date);
 }

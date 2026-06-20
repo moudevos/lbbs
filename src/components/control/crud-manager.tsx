@@ -110,10 +110,10 @@ export function CrudManager({ module }: { module: Module }) {
     await Swal.fire("Guardado", "Registro actualizado.", "success");
   }
 
-  async function deactivate(id: string) {
-    const confirm = await Swal.fire({ title: "Desactivar registro", icon: "warning", showCancelButton: true });
+  async function deactivate(id: string, active = false) {
+    const confirm = await Swal.fire({ title: active ? "Reactivar registro" : "Desactivar registro", icon: active ? "question" : "warning", showCancelButton: true });
     if (!confirm.isConfirmed) return;
-    const response = await fetch(`/api/control/${module}/${id}/deactivate`, { method: "PATCH" });
+    const response = await fetch(`/api/control/${module}/${id}/deactivate`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active }) });
     const data = await response.json();
     if (!response.ok) {
       await Swal.fire("No se pudo desactivar", data.error ?? "Error desconocido", "error");
@@ -152,7 +152,6 @@ export function CrudManager({ module }: { module: Module }) {
       </div>
       {temporaryPassword ? <div className="rounded-lg border border-[var(--border-soft)] bg-[rgba(212,175,55,0.08)] p-4 text-sm">Password temporal visible una sola vez: <strong>{temporaryPassword}</strong><br />El empleado debe validar su correo y luego cambiar este password al ingresar.</div> : null}
       {module === "customers" ? <CsvToolsPanel title="Importar clientes Google Contacts CSV" importUrl="/api/control/customers/import" exportUrl="/api/control/reports/customers/export" exportFormat="xlsx" onImported={load} /> : null}
-      {module === "services" ? <CsvToolsPanel title="Servicios XLSX" templateUrl="/api/control/services/template" importUrl="/api/control/services/import" format="xlsx" onImported={load} /> : null}
       {editing ? <EditorModal module={module} row={editing} branches={branches} saving={saving} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} /> : null}
       {loading && rows.length === 0 ? <TableSkeleton /> : null}
       {!loading && rows.length === 0 ? <EmptyState /> : null}
@@ -184,7 +183,12 @@ export function CrudManager({ module }: { module: Module }) {
                   setEditing(next);
                 }}>Editar</button> : null}
                 {canMutate && module === "employees" && row.role !== "barbero" && row.user_id ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => resetPassword(row.id)}><RotateCcw size={14} /> Reset</button> : null}
-                {canMutate ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-red-200" onClick={() => deactivate(row.id)}><Trash2 size={14} /> Desactivar</button> : null}
+                {canMutate ? row.is_active
+                  ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-red-200" onClick={() => deactivate(row.id)}><Trash2 size={14} /> Desactivar</button>
+                  : module === "services"
+                    ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-green-300" onClick={() => deactivate(row.id, true)}><RotateCcw size={14} /> Reactivar</button>
+                    : null
+                  : null}
               </div>
             </div>
           </article>

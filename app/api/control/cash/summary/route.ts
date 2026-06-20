@@ -37,8 +37,9 @@ export async function GET(request: NextRequest) {
   });
   const paidOrders = orders.filter((order: any) => order.status === "pagado");
   const totalSold = paidOrders.reduce((sum: number, order: any) => sum + Number(order.total ?? 0), 0);
+  const pendingStatuses = ["registrado", "pendiente_pago"];
   const pendingTotal = orders
-    .filter((order: any) => order.status === "registrado")
+    .filter((order: any) => pendingStatuses.includes(order.status))
     .reduce((sum: number, order: any) => sum + Number(order.balance ?? order.total ?? 0), 0);
   const productItems = paidOrders.flatMap((order: any) => (order.service_order_items ?? []).filter((item: any) => item.item_type === "product"));
   const serviceItems = paidOrders.flatMap((order: any) => (order.service_order_items ?? []).filter((item: any) => item.item_type === "service" || item.item_type === "custom_service"));
@@ -105,6 +106,6 @@ export async function GET(request: NextRequest) {
     byOrigin: Array.from(byOrigin, ([origin, value]) => ({ origin, ...value })),
     byBarber: Array.from(byBarber.values()).sort((a, b) => b.total - a.total),
     tickets: orders,
-    pendingTickets: orders.filter((order: any) => order.status === "registrado")
+    pendingTickets: orders.filter((order: any) => pendingStatuses.includes(order.status))
   });
 }

@@ -29,6 +29,14 @@ export function LocalAgenda() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, date]);
 
+  useEffect(() => {
+    if (!token) return;
+    const refresh = () => void load(token);
+    window.addEventListener("lbbs:local-data-changed", refresh);
+    return () => window.removeEventListener("lbbs:local-data-changed", refresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, date]);
+
   async function load(nextToken = token) {
     if (!nextToken) return showWarning("Token requerido", "Ingresa el token/PIN del dispositivo local.");
     setLoading(true);

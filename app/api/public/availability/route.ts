@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addMinutes, dateRangeForDay, overlaps, toLocalDateTime } from "@/lib/reservations/time";
+import { peruDayOfWeek, toPeruDate } from "@/lib/datetime/peru-time";
 
 const DEFAULT_OPEN = "09:00";
 const DEFAULT_CLOSE = "18:00";
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: serviceError?.message ?? "Servicio no encontrado" }, { status: 404 });
   }
 
-  const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
+  if (date < toPeruDate()) return NextResponse.json({ slots: [], open: null, close: null, durationMinutes: service.duration_minutes || 60 });
+  const dayOfWeek = peruDayOfWeek(date);
   let open = DEFAULT_OPEN;
   let close = DEFAULT_CLOSE;
 
@@ -94,7 +96,7 @@ export async function GET(request: NextRequest) {
   }));
   const slots: string[] = [];
 
-  const latestStart = Math.min(timeToMinutes(close) - 60, timeToMinutes(close) - duration);
+  const latestStart = Math.min(timeToMinutes(close) - 30, timeToMinutes(close) - duration);
 
   for (let cursor = timeToMinutes(open); cursor <= latestStart; cursor += 15) {
     const start = toLocalDateTime(date, minutesToTime(cursor));

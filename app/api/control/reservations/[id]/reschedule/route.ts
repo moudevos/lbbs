@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit";
 import { addMinutes, dateRangeForDay, overlaps, toLocalDateTime } from "@/lib/reservations/time";
 import type { ReservationStatus } from "@/lib/reservations/types";
+import { validateOperationalSchedule } from "@/lib/reservations/availability";
 
 type ReservationRow = {
   id: string;
@@ -55,6 +56,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const duration = Number(service?.duration_minutes ?? 60);
   const startsAt = toLocalDateTime(body.date, body.startTime);
   const endsAt = addMinutes(startsAt, duration);
+  const scheduleError = await validateOperationalSchedule({
+    admin, branchId, employeeId, date: body.date, time: body.startTime, durationMinutes: duration
+  });
+  if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 409 });
 
   let overlapWarning = false;
 

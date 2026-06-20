@@ -52,11 +52,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: "Solo reservas confirmadas pueden cerrarse como atendidas" }, { status: 400 });
   }
 
-  const service = first(reservation.services);
-  if (service?.sku === "CUSTOM" && reservation.price == null) {
-    return NextResponse.json({ error: "Asigna precio al servicio personalizado antes de crear la atencion" }, { status: 400 });
-  }
-
   const assignedBarberId = reservation.employee_id || body.barberId || null;
   if (!assignedBarberId) {
     return NextResponse.json({ error: "Selecciona un barbero para confirmar la atencion", code: "BARBER_REQUIRED" }, { status: 400 });

@@ -32,6 +32,19 @@ const CONTACT_HOURS = "Lunes a Sábado · 9:30 AM a 9:30 PM";
 
 const TOTAL_STEPS = 4;
 
+function emptyReservationForm() {
+  return {
+    branchId: "",
+    serviceId: "",
+    employeeId: "",
+    customerName: "",
+    customerPhone: "",
+    date: new Date().toISOString().slice(0, 10),
+    time: "",
+    observations: ""
+  };
+}
+
 export function PublicReservationForm({ initialMainContact }: { initialMainContact: { phone: string | null } }) {
   const searchParams = useSearchParams();
   const requestedBranchId = searchParams.get("sede");
@@ -44,16 +57,7 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
   const [step, setStep] = useState(1);
   const [showAllBranches, setShowAllBranches] = useState(false);
   const [customNote, setCustomNote] = useState("");
-  const [form, setForm] = useState({
-    branchId: "",
-    serviceId: "",
-    employeeId: "",
-    customerName: "",
-    customerPhone: "",
-    date: new Date().toISOString().slice(0, 10),
-    time: "",
-    observations: ""
-  });
+  const [form, setForm] = useState(emptyReservationForm);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -178,18 +182,11 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
         "success"
       );
 
-      setForm((current) => ({
-        ...current,
-        serviceId: "",
-        employeeId: "",
-        customerName: "",
-        customerPhone: "",
-        time: "",
-        observations: ""
-      }));
+      setForm(emptyReservationForm());
       setSlots([]);
       setCustomNote("");
-      setStep(2);
+      setShowAllBranches(true);
+      setStep(1);
     } catch {
       await swalThemed.fire("No se pudo reservar", "Revisa tu conexión e intenta nuevamente.", "error");
     } finally {

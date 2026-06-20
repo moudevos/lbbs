@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, ClipboardList, Package, Plus, PlusCircle, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, ClipboardList, Loader2, Package, Plus, PlusCircle, Save, Trash2 } from "lucide-react";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { BranchOption } from "@/lib/reservations/types";
 import { CsvToolsPanel } from "@/components/import-export/csv-tools-panel";
@@ -15,6 +15,7 @@ export function ProductsManager() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
   const [stockAction, setStockAction] = useState<{ product: Product; stock: Product; mode: "ingreso" | "ajuste" } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   async function load() {
     const params = new URLSearchParams();
@@ -67,16 +68,19 @@ export function ProductsManager() {
 
   async function save() {
     if (!editing) return;
+    if (busy) return;
+    setBusy("save-product");
     const response = await fetch(editing.id ? `/api/control/products/${editing.id}` : "/api/control/products", {
       method: editing.id ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editing)
     });
     const data = await response.json();
-    if (!response.ok) return showError("No se pudo guardar", data.error ?? "Revisa los datos.");
+    if (!response.ok) { setBusy(null); return showError("No se pudo guardar", data.error ?? "Revisa los datos."); }
     setEditing(null);
     await load();
     await showSuccess("Producto guardado");
+    setBusy(null);
   }
 
   async function deactivate(id: string) {
@@ -134,7 +138,7 @@ export function ProductsManager() {
             </label>
           </div>
           <div className="mt-4 flex gap-2">
-            <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" onClick={save}><Save size={16} /> Guardar</button>
+            <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" disabled={busy === "save-product"} onClick={save}>{busy === "save-product" ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Guardar</button>
             <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={() => setEditing(null)}>Cancelar</button>
           </div>
         </div>
@@ -202,18 +206,22 @@ function StockModal({
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [reference, setReference] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function save() {
+    if (saving) return;
     if (movementKind === "ajuste_negativo" && !(await showConfirm("Confirmar ajuste negativo", "Se reducirá stock de esta sede."))) return;
+    setSaving(true);
     const response = await fetch(`/api/control/products/${action.product.id}/stock`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ branchId, movementKind, quantity: Number(quantity), reason, reference })
     });
     const data = await response.json();
-    if (!response.ok) return showError("No se pudo registrar movimiento", data.error ?? "Revisa los datos.");
+    if (!response.ok) { setSaving(false); return showError("No se pudo registrar movimiento", data.error ?? "Revisa los datos."); }
     await showSuccess("Stock actualizado");
     await onSaved();
+    setSaving(false);
   }
 
   return (
@@ -241,7 +249,7 @@ function StockModal({
           <Input label="Referencia opcional" value={reference} onChange={setReference} />
         </div>
         <div className="mt-5 flex gap-2">
-          <button className="rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" onClick={save}>Guardar</button>
+          <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" disabled={saving} onClick={save}>{saving ? <Loader2 size={16} className="animate-spin" /> : null} Guardar</button>
           <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={onClose}>Cancelar</button>
         </div>
       </div>

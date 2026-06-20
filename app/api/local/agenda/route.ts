@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       .lte("starts_at", range.to)
       .order("starts_at"),
     auth.admin.from("employees").select("id,first_name,last_name,branch_id,role,can_perform_services").eq("branch_id", auth.token.branch_id).eq("is_active", true).or("role.eq.barbero,can_perform_services.eq.true").order("first_name"),
-    auth.admin.from("services").select("id,name,price,duration_minutes,branch_id").eq("is_active", true).or(`branch_id.is.null,branch_id.eq.${auth.token.branch_id}`).order("name"),
+    auth.admin.from("services").select("id,sku,name,price,duration_minutes,branch_id").eq("is_active", true).or(`branch_id.is.null,branch_id.eq.${auth.token.branch_id}`).order("name"),
     auth.admin.from("products").select("id,name,sku,sale_price,branch_id,category,counts_for_seller_credit,seller_credit_amount,product_branch_stock(branch_id,stock_current)").eq("is_active", true).or(`branch_id.is.null,branch_id.eq.${auth.token.branch_id}`).order("name"),
     auth.admin.from("whatsapp_templates").select("key,body")
   ]);
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     branchId: auth.token.branch_id,
     reservations: (reservations ?? []).map((reservation) => mapReservation(reservation as never, templateMap.primer_contacto, templateMap)),
     barbers: (barbers ?? []).map((barber) => ({ id: barber.id, name: `${barber.first_name} ${barber.last_name}`.trim(), branchId: barber.branch_id })),
-    services: (services ?? []).map((service) => ({ id: service.id, name: service.name, price: service.price, durationMinutes: service.duration_minutes, branchId: service.branch_id })),
+    services: (services ?? []).map((service) => ({ id: service.id, sku: service.sku, name: service.name, price: service.price, durationMinutes: service.duration_minutes, branchId: service.branch_id })),
     products: products ?? []
   });
 }

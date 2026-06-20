@@ -4,6 +4,8 @@ import { resolveBranchScope } from "@/lib/branch-scope/branch-scope";
 import { writeAuditLog } from "@/lib/audit";
 import { createServiceOrder, missingAttentionItemsMessage, normalizeMoney } from "@/lib/service-orders/server";
 import { isValidPeruMobilePhone } from "@/lib/customers/phone";
+import { toPeruDate } from "@/lib/datetime/peru-time";
+import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
 
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
@@ -33,7 +35,8 @@ export async function GET(request: NextRequest) {
     query = query.eq("employee_id", context.employee.employeeId);
   }
   if (barberId) query = query.eq("employee_id", barberId);
-  if (status) query = query.eq("status", status);
+  if (status && status !== "all") query = query.eq("status", status);
+  else if (!status) query = query.neq("status", "anulado");
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,17 +49,18 @@ export async function POST(request: NextRequest) {
   if (context.employee.role === "barbero") return NextResponse.json({ error: "Barbero no registra ventas" }, { status: 403 });
 
   const body = await request.json();
+  const genericCustomer = isGenericCustomerPhone(body.customerPhone);
+  if (genericCustomer) body.customerName = "Cliente generico";
   const branchId = context.employee.role === "admin" ? body.branchId : context.employee.branchId;
   const hasService = Boolean(body.serviceId);
-  const hasAdditions = Array.isArray(body.additions) && body.additions.some((item: any) => item.name && Number(item.amount) > 0);
   const hasProducts = Array.isArray(body.productItems) && body.productItems.length > 0;
   if (!branchId || !body.customerPhone || !body.customerName || !body.employeeId) {
     return NextResponse.json({ error: "Sede, cliente y barbero son requeridos" }, { status: 400 });
   }
-  if (!hasService && !hasAdditions && !hasProducts) {
+  if (!hasService && !hasProducts) {
     return NextResponse.json({ error: missingAttentionItemsMessage }, { status: 400 });
   }
-  if (!isValidPeruMobilePhone(body.customerPhone)) {
+  if (!genericCustomer && !isValidPeruMobilePhone(body.customerPhone)) {
     return NextResponse.json({ error: "Ingresa un celular peruano valido de 9 digitos" }, { status: 400 });
   }
 
@@ -68,10 +72,11 @@ export async function POST(request: NextRequest) {
     employeeId: body.employeeId,
     serviceId: body.serviceId || null,
     total: normalizeMoney(body.total),
-    additions: body.additions ?? [],
+    additions: [],
     productItems: body.productItems ?? [],
     observations: body.observations ?? null,
-    serviceDate: context.employee.role === "admin" && body.serviceDate ? body.serviceDate : new Date().toISOString().slice(0, 10)
+    status: "pendiente_pago",
+    serviceDate: context.employee.role === "admin" && body.serviceDate ? body.serviceDate : toPeruDate()
   });
 
   if (result.error || !result.serviceOrderId) {
@@ -100,5 +105,5 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, redirectTo: `/app/control/atenciones/${result.serviceOrderId}?focus=payment` });
 }

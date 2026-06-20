@@ -4,6 +4,7 @@ import { findOrCreateCustomerByPhone } from "@/lib/reservations/server";
 import { applyClassicCutReward, countServiceOrderVisitOnce, finalizeReward } from "@/lib/rewards/server";
 import { calculateProductionForPaidOrder } from "@/lib/production/server";
 import type { PaymentMethod, PaymentSplit } from "./types";
+import { resolveCustomerProductDiscount } from "@/lib/customers/customer-product-discount";
 
 type AdminClient = SupabaseClient<any, "public", any>;
 
@@ -32,8 +33,8 @@ export function validatePaymentSplits(total: number, splits: PaymentSplit[]) {
   return paid === normalizeMoney(total) ? null : "La suma de pagos debe coincidir exactamente con el total";
 }
 
-export const missingAttentionItemsMessage = "Agrega al menos un servicio, adicional o producto antes de guardar la atención.";
-export const missingPaymentItemsMessage = "Agrega al menos un servicio, adicional o producto antes de registrar el pago.";
+export const missingAttentionItemsMessage = "Agrega al menos un servicio o producto antes de guardar la atencion.";
+export const missingPaymentItemsMessage = "Agrega al menos un servicio o producto antes de registrar el pago.";
 
 export async function createServiceOrder({
   admin,
@@ -89,7 +90,7 @@ export async function createServiceOrder({
   if (customerResult.error || !customerResult.customer) return { error: customerResult.error ?? "No se pudo resolver cliente" };
 
   const cleanAdditions = (additions ?? []).filter((item) => item.name && normalizeMoney(item.amount) > 0);
-  const products = await resolveProductItems(admin, branchId, productItems ?? []);
+  const products = await resolveProductItems(admin, branchId, customerResult.customer.id, productItems ?? []);
   if (products.error) return { error: products.error };
 
   if (!serviceId && cleanAdditions.length === 0 && (products.items ?? []).length === 0) {
@@ -98,9 +99,11 @@ export async function createServiceOrder({
 
   const serviceAmount = serviceId ? await getServicePrice(admin, serviceId, total) : 0;
   const additionsTotal = cleanAdditions.reduce((sum, item) => sum + normalizeMoney(item.amount), 0);
-  const productsTotal = (products.items ?? []).reduce((sum, item) => sum + normalizeMoney(item.subtotal), 0);
+  const productsTotal = (products.items ?? []).reduce((sum, item) => sum + normalizeMoney(item.originalUnitPrice * item.quantity), 0);
+  const productDiscountTotal = (products.items ?? []).reduce((sum, item) => sum + normalizeMoney(item.discountAmount), 0);
   const subtotal = normalizeMoney(serviceAmount + additionsTotal + productsTotal);
-  const finalTotal = normalizeMoney(total || Math.max(subtotal - normalizeMoney(discountAmount), 0));
+  const totalDiscount = normalizeMoney(discountAmount + productDiscountTotal);
+  const finalTotal = normalizeMoney(Math.max(subtotal - totalDiscount, 0));
 
   const { data: order, error } = await admin
     .from("service_orders")
@@ -116,9 +119,9 @@ export async function createServiceOrder({
       total: finalTotal,
       total_paid: 0,
       balance: finalTotal,
-      discount_amount: normalizeMoney(discountAmount),
+      discount_amount: totalDiscount,
       reward_redemption_id: rewardRedemptionId,
-      attended_at: serviceDate ? `${serviceDate}T12:00:00.000Z` : new Date().toISOString(),
+      attended_at: new Date().toISOString(),
       service_date: serviceDate ?? new Date().toISOString().slice(0, 10),
       observations: observations ?? null
     })
@@ -138,6 +141,7 @@ export async function createServiceOrder({
       description: serviceName,
       quantity: 1,
       unit_price: serviceAmount,
+      discount_amount: 0,
       amount: serviceAmount,
       subtotal: serviceAmount,
       barber_id: employeeId,
@@ -154,6 +158,7 @@ export async function createServiceOrder({
         description: item.name,
         quantity: 1,
         unit_price: normalizeMoney(item.amount),
+        discount_amount: 0,
         amount: normalizeMoney(item.amount),
         subtotal: normalizeMoney(item.amount),
         barber_id: employeeId,
@@ -171,16 +176,31 @@ export async function createServiceOrder({
       description: item.name,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      original_unit_price: item.originalUnitPrice,
+      discount_percent: item.discountPercent,
+      discount_amount: item.discountAmount,
+      discount_rule: item.discountRule,
       amount: item.subtotal,
       subtotal: item.subtotal,
       branch_id: branchId,
-      sold_by_employee_id: item.soldByEmployeeId,
+      sold_by_employee_id: item.soldByEmployeeId ?? employeeId,
       counts_for_seller_credit: item.countsForSellerCredit,
       seller_credit_amount: item.sellerCreditAmount
     })));
   }
 
-  if (rows.length > 0) await admin.from("service_order_items").insert(rows);
+  if (rows.length > 0) {
+    const normalizedRows = rows.map(normalizeServiceOrderItemRow);
+    let insertResult = await admin.from("service_order_items").insert(normalizedRows);
+    if (insertResult.error && isMissingDiscountColumns(insertResult.error)) {
+      const compatibleRows = normalizedRows.map(({ original_unit_price, discount_percent, discount_rule, ...row }) => row);
+      insertResult = await admin.from("service_order_items").insert(compatibleRows);
+    }
+    if (insertResult.error) {
+      await admin.from("service_orders").delete().eq("id", order.id);
+      return { error: `No se pudieron guardar los items de la atencion: ${insertResult.error.message}` };
+    }
+  }
   if (products.items?.length) await decrementProductStock(admin, order.id, branchId, products.items);
 
   return {
@@ -258,12 +278,25 @@ export async function convertReservationToServiceOrder(admin: AdminClient, reser
 export async function payServiceOrder(admin: AdminClient, serviceOrderId: string, method: PaymentMethod, splits?: PaymentSplit[], actorUserId?: string | null) {
   const { data: order, error } = await admin
     .from("service_orders")
-    .select("id,total,status,service_id,reward_redemption_id,service_order_items(item_type)")
+    .select("id,total,status,service_id,branch_id,service_date,reward_redemption_id,service_order_items(item_type)")
     .eq("id", serviceOrderId)
     .maybeSingle();
 
   if (error || !order) return NextResponse.json({ error: error?.message ?? "Servicio no encontrado" }, { status: 404 });
   if (order.status === "anulado") return NextResponse.json({ error: "No se puede pagar un servicio anulado" }, { status: 400 });
+  const { data: closure, error: closureError } = await admin
+    .from("cash_closures")
+    .select("id,status")
+    .eq("branch_id", order.branch_id)
+    .eq("closure_date", order.service_date)
+    .eq("status", "closed")
+    .maybeSingle();
+  if (closureError && closureError.code !== "42P01") {
+    return NextResponse.json({ error: closureError.message }, { status: 500 });
+  }
+  if (closure) {
+    return NextResponse.json({ error: "La caja de esta sede y fecha esta cerrada. Un admin debe reabrirla antes de cobrar." }, { status: 409 });
+  }
   const hasBillableItem = (order.service_order_items ?? []).some((item: any) => ["service", "custom_service", "manual_extra", "product", "snack"].includes(item.item_type));
   if (!hasBillableItem) return NextResponse.json({ error: missingPaymentItemsMessage }, { status: 400 });
 
@@ -314,17 +347,33 @@ export async function applyRewardToServiceOrder({
   return applyClassicCutReward(admin, serviceOrderId, actorUserId);
 }
 
+function normalizeServiceOrderItemRow(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...row,
+    discount_amount: normalizeMoney(row.discount_amount),
+    seller_credit_amount: normalizeMoney(row.seller_credit_amount),
+    counts_for_seller_credit: Boolean(row.counts_for_seller_credit),
+    stock_controlled: Boolean(row.stock_controlled)
+  };
+}
+
+function isMissingDiscountColumns(error: { code?: string; message?: string }) {
+  const message = String(error.message ?? "");
+  return error.code === "42703" || error.code === "PGRST204"
+    || /original_unit_price|discount_percent|discount_rule/i.test(message);
+}
+
 async function getServiceName(admin: AdminClient, serviceId: string) {
   const { data } = await admin.from("services").select("name").eq("id", serviceId).maybeSingle();
   return data?.name ?? "Servicio";
 }
 
 async function getServicePrice(admin: AdminClient, serviceId: string, fallback: number) {
-  const { data } = await admin.from("services").select("price").eq("id", serviceId).maybeSingle();
-  return normalizeMoney(data?.price ?? fallback ?? 0);
+  const { data } = await admin.from("services").select("price,allow_manual_price").eq("id", serviceId).maybeSingle();
+  return normalizeMoney(data?.allow_manual_price ? fallback : data?.price ?? fallback ?? 0);
 }
 
-async function resolveProductItems(admin: AdminClient, branchId: string, items: { productId: string; quantity: number; unitPrice?: number; soldByEmployeeId?: string | null }[]) {
+async function resolveProductItems(admin: AdminClient, branchId: string, customerId: string, items: { productId: string; quantity: number; unitPrice?: number; soldByEmployeeId?: string | null }[]) {
   const resolved = [];
   for (const item of items) {
     const quantity = Math.trunc(Number(item.quantity ?? 0));
@@ -344,12 +393,19 @@ async function resolveProductItems(admin: AdminClient, branchId: string, items: 
       .maybeSingle();
     const currentStock = Number(branchStock?.stock_current ?? 0);
     if (currentStock < quantity) return { error: `Stock insuficiente para ${product.name}` };
-    const unitPrice = normalizeMoney(item.unitPrice ?? product.sale_price ?? 0);
+    const originalUnitPrice = normalizeMoney(item.unitPrice ?? product.sale_price ?? 0);
+    const discount = await resolveCustomerProductDiscount(admin, customerId, product.category);
+    const discountAmount = discount.eligible ? normalizeMoney(originalUnitPrice * quantity * discount.percent / 100) : 0;
+    const unitPrice = discount.eligible ? normalizeMoney(originalUnitPrice * (1 - discount.percent / 100)) : originalUnitPrice;
     resolved.push({
       productId: product.id as string,
       name: product.name as string,
       quantity,
       unitPrice,
+      originalUnitPrice,
+      discountPercent: discount.eligible ? discount.percent : 0,
+      discountAmount,
+      discountRule: discount.eligible ? "customer_recurrent_barber_product" : null,
       subtotal: normalizeMoney(unitPrice * quantity),
       previousStock: currentStock,
       soldByEmployeeId: item.soldByEmployeeId ?? null,

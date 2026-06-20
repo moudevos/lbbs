@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { PwaRegistration } from "@/components/pwa/pwa-registration";
 import "./globals.css";
 
 const appUrl = "https://labajaditabarberstudio.com";
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body>
         {children}
+        <PwaRegistration />
         <GoogleAnalytics />
       </body>
     </html>

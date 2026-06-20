@@ -23,7 +23,25 @@ export async function GET(request: NextRequest) {
   if (q) query = query.or(`phone.ilike.%${q}%,normalized_phone.ilike.%${normalizePhone(q)}%,full_name.ilike.%${q}%`);
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ customers: data ?? [] });
+  const customerIds = (data ?? []).map((customer) => customer.id);
+  const { data: paidOrders } = customerIds.length
+    ? await context.admin.from("service_orders").select("customer_id,attended_at").in("customer_id", customerIds).eq("status", "pagado")
+    : { data: [] };
+  const liveStats = new Map<string, { total: number; last: string | null }>();
+  for (const order of paidOrders ?? []) {
+    if (!order.customer_id) continue;
+    const current = liveStats.get(order.customer_id) ?? { total: 0, last: null };
+    current.total += 1;
+    if (!current.last || new Date(order.attended_at).getTime() > new Date(current.last).getTime()) current.last = order.attended_at;
+    liveStats.set(order.customer_id, current);
+  }
+  return NextResponse.json({
+    customers: (data ?? []).map((customer: any) => {
+      const stored = Array.isArray(customer.customer_visit_stats) ? customer.customer_visit_stats[0] : customer.customer_visit_stats;
+      const live = liveStats.get(customer.id);
+      return { ...customer, customer_visit_stats: [{ ...stored, total_visits: live?.total ?? Number(stored?.total_visits ?? 0), last_visit_at: live?.last ?? stored?.last_visit_at ?? null }] };
+    })
+  });
 }
 
 export async function POST(request: NextRequest) {

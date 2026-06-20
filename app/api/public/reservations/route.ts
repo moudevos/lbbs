@@ -4,6 +4,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { addMinutes, dateRangeForDay, overlaps, toLocalDateTime } from "@/lib/reservations/time";
 import { isValidPeruMobilePhone } from "@/lib/customers/phone";
 import { findOrCreateCustomerByPhone } from "@/lib/reservations/server";
+import { validateOperationalSchedule } from "@/lib/reservations/availability";
 
 type CreateReservationBody = {
   branchId: string;
@@ -43,6 +44,11 @@ export async function POST(request: NextRequest) {
 
   const startsAt = toLocalDateTime(body.date, body.time);
   const endsAt = addMinutes(startsAt, service.duration_minutes || 60);
+  const scheduleError = await validateOperationalSchedule({
+    admin, branchId: body.branchId, employeeId: body.employeeId, date: body.date,
+    time: body.time, durationMinutes: service.duration_minutes || 60
+  });
+  if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 409 });
   const range = dateRangeForDay(body.date);
   let overlapWarning = false;
 

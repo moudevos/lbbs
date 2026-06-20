@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Award, BarChart3, CalendarCheck, CalendarDays, ChevronDown, Gift, Images, MonitorSmartphone, MessageSquareText, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Award, BarChart3, CalendarCheck, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Gift, Images, MonitorSmartphone, MessageSquareText, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { CurrentEmployee } from "@/lib/auth/types";
 import { getModulesForRole } from "@/lib/auth/permissions";
@@ -9,6 +9,7 @@ import { NavigationLoadingProvider, useNavigationLoading } from "@/components/na
 import { TopProgressBar } from "@/components/navigation/top-progress-bar";
 import { ModuleRouteSkeleton } from "@/components/navigation/module-route-skeleton";
 import { RealtimeNotificationCenter } from "@/components/realtime/realtime-notification-center";
+import { OperationalToastLayer } from "@/components/notifications/operational-toast-layer";
 import { ControlThemeProvider } from "./control-theme-provider";
 import { ControlNavLink } from "./control-nav-link";
 import { BranchScopeSelector } from "./branch-scope-selector";
@@ -50,6 +51,7 @@ export function ControlShell({ employee, children }: { employee: CurrentEmployee
 
 function ControlShellContent({ employee, children }: { employee: CurrentEmployee; children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [syncState, setSyncState] = useState<{ status: RealtimeStatus; lastSyncAt: string | null }>({ status: "idle", lastSyncAt: null });
   const { isNavigating, targetPathname } = useNavigationLoading();
   const pathname = usePathname();
@@ -62,6 +64,13 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groupedModules.map((group) => [group.title, group.title === "Principal" || group.title === activeGroup]))
   );
+  useEffect(() => setSidebarCollapsed(localStorage.getItem("lbbs:sidebar-collapsed") === "true"), []);
+  function toggleSidebar() {
+    setSidebarCollapsed((current) => {
+      localStorage.setItem("lbbs:sidebar-collapsed", String(!current));
+      return !current;
+    });
+  }
 
   function toggleGroup(title: string) {
     setOpenGroups((current) => ({ ...current, [title]: !current[title] }));
@@ -72,7 +81,7 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
       {primaryModules.length > 0 ? (
         <div className="grid gap-1">
           {primaryModules.map((module) => (
-            <ControlNavLink key={`${module.href}-${module.label}`} href={module.href} label={module.label} icon={icons[module.label as keyof typeof icons] ?? LayoutDashboard} onNavigate={() => setMobileOpen(false)} />
+            <ControlNavLink collapsed={sidebarCollapsed} key={`${module.href}-${module.label}`} href={module.href} label={module.label} icon={icons[module.label as keyof typeof icons] ?? LayoutDashboard} onNavigate={() => setMobileOpen(false)} />
           ))}
         </div>
       ) : null}
@@ -84,13 +93,13 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
             onClick={() => toggleGroup(group.title)}
             aria-expanded={Boolean(openGroups[group.title])}
           >
-            <span>{group.title}</span>
+            <span className={sidebarCollapsed ? "sr-only" : ""}>{group.title}</span>
             <ChevronDown size={15} className={`transition-transform ${openGroups[group.title] ? "rotate-180" : ""}`} />
           </button>
           {openGroups[group.title] ? (
             <div className="grid gap-1 px-2 pb-2">
               {group.items.map((module) => (
-                <ControlNavLink key={`${module.href}-${module.label}`} href={module.href} label={module.label} icon={icons[module.label as keyof typeof icons] ?? LayoutDashboard} onNavigate={() => setMobileOpen(false)} />
+                <ControlNavLink collapsed={sidebarCollapsed} key={`${module.href}-${module.label}`} href={module.href} label={module.label} icon={icons[module.label as keyof typeof icons] ?? LayoutDashboard} onNavigate={() => setMobileOpen(false)} />
               ))}
             </div>
           ) : null}
@@ -102,10 +111,12 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
   return (
     <div className="control-app h-screen overflow-hidden bg-[var(--control-bg)] text-[var(--control-text)]">
       <ControlThemeProvider />
+      <OperationalToastLayer />
+      <OperationalToastLayer />
       <TopProgressBar />
       <div className="flex h-[calc(100%-2px)]">
-        <aside className="control-surface hidden h-full w-72 shrink-0 overflow-y-auto border-r border-[var(--control-border)] p-4 lg:block">
-          <Brand />
+        <aside className={`control-surface hidden h-full shrink-0 overflow-y-auto border-r border-[var(--control-border)] transition-[width] duration-200 lg:block ${sidebarCollapsed ? "w-[72px] p-2" : "w-72 p-4"}`}>
+          <div className="flex items-start justify-between gap-2"><Brand collapsed={sidebarCollapsed} /><button title={sidebarCollapsed ? "Desplegar sidebar" : "Plegar sidebar"} className="rounded-lg border border-[var(--control-border)] p-2" onClick={toggleSidebar}>{sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</button></div>
           {nav}
         </aside>
 
@@ -150,9 +161,9 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
   );
 }
 
-function Brand() {
+function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <div className="mb-6">
+    <div className={`mb-6 ${collapsed ? "sr-only" : ""}`}>
       <p className="text-xs uppercase tracking-[0.22em] text-[var(--gold-soft)]">Control</p>
       <h1 className="mt-2 text-lg font-semibold">La Bajadita</h1>
     </div>

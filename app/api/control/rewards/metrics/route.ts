@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
+import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
 
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
@@ -14,7 +15,10 @@ export async function GET(request: NextRequest) {
   if (from) redemptionQuery = redemptionQuery.gte("redeemed_at", `${from}T00:00:00`);
   if (to) redemptionQuery = redemptionQuery.lte("redeemed_at", `${to}T23:59:59`);
   const [{ data: accounts }, { data: redemptions }] = await Promise.all([accountsQuery, redemptionQuery]);
-  const scopedAccounts = (accounts ?? []).filter((row: any) => !branchId || branchId === "all" || row.customers?.branch_id === branchId);
+  const scopedAccounts = (accounts ?? []).filter((row: any) => {
+    const customer = Array.isArray(row.customers) ? row.customers[0] : row.customers;
+    return !isGenericCustomerPhone(customer?.phone) && (!branchId || branchId === "all" || customer?.branch_id === branchId);
+  });
   const redeemed = (redemptions ?? []).filter((row: any) => row.status === "redeemed");
   const available = scopedAccounts.filter((row: any) => Number(row.available_rewards) > 0);
   const group = (rows: any[], key: string, label: (row: any) => string) => Array.from(rows.reduce((map, row) => {

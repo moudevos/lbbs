@@ -9,9 +9,11 @@ import { PaymentMethodBadge } from "./payment-method-badge";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { PaymentMethod, PaymentSplit } from "@/lib/service-orders/types";
 import type { BarberOption, ServiceOption } from "@/lib/reservations/types";
+import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
+import { formatPeruDateTime } from "@/lib/datetime/peru-time";
 
 type Order = Record<string, any>;
-type Product = { id: string; name: string; sku: string; sale_price: number; branch_id: string | null; counts_for_seller_credit?: boolean; seller_credit_amount?: number; product_branch_stock?: { branch_id: string; stock_current: number }[] };
+type Product = { id: string; name: string; sku: string; sale_price: number; branch_id: string | null; category?: string | null; counts_for_seller_credit?: boolean; seller_credit_amount?: number; product_branch_stock?: { branch_id: string; stock_current: number }[] };
 
 function first<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
@@ -26,14 +28,14 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   const [barbers, setBarbers] = useState<BarberOption[]>([]);
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [serviceId, setServiceId] = useState("");
-  const [extraName, setExtraName] = useState("");
-  const [extraAmount, setExtraAmount] = useState("");
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [sellerType, setSellerType] = useState<"reception" | "barber">("reception");
   const [soldByEmployeeId, setSoldByEmployeeId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("efectivo");
   const [splits, setSplits] = useState<PaymentSplit[]>([]);
+  const [responsibleBarberId, setResponsibleBarberId] = useState("");
+  const [barberChangeReason, setBarberChangeReason] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   async function load() {
@@ -44,6 +46,8 @@ export function ServiceOrderDetail({ id }: { id: string }) {
       return;
     }
     setOrder(data.serviceOrder);
+    const currentBarber = first(data.serviceOrder.employees);
+    setResponsibleBarberId(currentBarber?.id ?? "");
     const branch = first(data.serviceOrder.branches);
     const [productsResponse, optionsResponse] = await Promise.all([
       fetch(`/api/control/products?branch_id=${branch?.id ?? "all"}`),
@@ -76,6 +80,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   const reservation = first(order?.reservations);
   const rewards = first(customer?.customer_reward_accounts);
   const items = order?.service_order_items ?? [];
+  const billableItems = items.filter((item: any) => ["service", "custom_service", "manual_extra", "product", "snack"].includes(item.item_type));
   const payments = order?.payment_details ?? [];
   const locked = order?.status === "pagado" || order?.status === "anulado";
   const hasClassicCut = items.some((item: any) => {
@@ -85,25 +90,6 @@ export function ServiceOrderDetail({ id }: { id: string }) {
 
   const selectedProduct = useMemo(() => products.find((product) => product.id === productId), [productId, products]);
   const selectedProductCredit = Boolean(selectedProduct?.counts_for_seller_credit);
-
-  async function addExtra() {
-    if (busyAction) return;
-    setBusyAction("extra");
-    try {
-      const response = await fetch(`/api/control/service-orders/${id}/items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemType: "manual_extra", name: extraName, amount: Number(extraAmount) })
-      });
-      const data = await response.json();
-      if (!response.ok) return showError("No se pudo agregar adicional", data.error ?? "Revisa el monto.");
-      setExtraName("");
-      setExtraAmount("");
-      await load();
-    } finally {
-      setBusyAction(null);
-    }
-  }
 
   async function addService() {
     if (busyAction) return;
@@ -201,6 +187,26 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     }
   }
 
+  async function changeBarber() {
+    if (busyAction || !responsibleBarberId || responsibleBarberId === barber?.id) return;
+    if (!(await showConfirm("Cambiar barbero responsable", "La atencion y sus items de servicio se reasignaran al nuevo barbero."))) return;
+    setBusyAction("change-barber");
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/barber`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: responsibleBarberId, reason: barberChangeReason })
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo cambiar el barbero", data.error ?? "Intenta nuevamente.");
+      setBarberChangeReason("");
+      await load();
+      await showSuccess("Barbero actualizado");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function redeem() {
     if (busyAction) return;
     setBusyAction("classic_cut");
@@ -240,22 +246,61 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   }
 
   return (
-    <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
-      <div className="grid gap-4">
+    <section className="grid min-w-0 max-w-full gap-5 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid min-w-0 gap-4">
         <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--gold-soft)]">Atención</p>
-              <h1 className="mt-2 text-2xl font-semibold">{customer?.full_name ?? "Cliente"}</h1>
+              <h1 className="mt-2 text-2xl font-semibold">{isGenericCustomerPhone(customer?.phone) ? "Cliente generico" : customer?.full_name ?? "Cliente"}</h1>
               <p className="mt-1 text-sm text-[var(--text-muted)]">{customer?.phone ?? "Sin celular"} - {branch?.name ?? "Sede"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p>
               <p className="mt-1 text-sm text-[var(--text-muted)]">Origen: {order.origin === "reservation" ? "Reserva" : "Atención directa"} - Estado: {order.status}</p>
               {reservation ? <p className="mt-1 text-sm text-[var(--text-muted)]">Reserva original: {new Date(reservation.starts_at).toLocaleString("es-PE")}</p> : null}
+              <p className="mt-1 text-sm text-[var(--text-muted)]">Creada: {formatPeruDateTime(order.created_at)} - Atendida: {formatPeruDateTime(order.attended_at)}</p>
             </div>
             <Link className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href="/app/control/atenciones">Volver</Link>
           </div>
         </div>
 
-        <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
+        <div className="order-[6] rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
+          <h2 className="font-semibold">Observaciones y auditoria</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm text-[var(--text-muted)]">{order.observations || "Sin observaciones."}</p>
+          <div className="mt-4 grid gap-2">
+            {(order.audit_logs ?? []).map((log: any) => <div key={log.id} className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs text-[var(--text-muted)]"><strong className="text-white">{log.event_type}</strong> - {formatPeruDateTime(log.created_at)}</div>)}
+            {(order.audit_logs ?? []).length === 0 ? <p className="text-xs text-[var(--text-muted)]">Sin eventos de auditoria vinculados.</p> : null}
+          </div>
+        </div>
+
+        {order.status !== "anulado" ? (
+          <div className="order-[5] rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
+            <h2 className="font-semibold">Barbero responsable</h2>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              El cambio se aplica a la atencion y a todos sus items de servicio. En atenciones pagadas solo admin puede corregirlo con motivo.
+            </p>
+            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+              <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={responsibleBarberId} onChange={(event) => setResponsibleBarberId(event.target.value)}>
+                <option value="">Seleccionar barbero</option>
+                {barbers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <input
+                className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white"
+                placeholder={order.status === "pagado" ? "Motivo obligatorio" : "Motivo opcional"}
+                value={barberChangeReason}
+                onChange={(event) => setBarberChangeReason(event.target.value)}
+              />
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--gold)] px-4 py-2 text-[var(--gold-soft)] disabled:opacity-50"
+                disabled={Boolean(busyAction) || !responsibleBarberId || responsibleBarberId === barber?.id || (order.status === "pagado" && !barberChangeReason.trim())}
+                onClick={changeBarber}
+              >
+                {busyAction === "change-barber" ? <Loader2 size={16} className="animate-spin" /> : null}
+                Guardar cambio
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="order-[2] rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
           <h2 className="font-semibold">Items</h2>
           <div className="mt-3 grid gap-2">
             {items.length === 0 ? <p className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">Esta atención no tiene items registrados. Agrega al menos uno antes de cobrar.</p> : null}
@@ -270,6 +315,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
                   {item.item_type === "product" && item.counts_for_seller_credit ? (
                     <p className="mt-1 text-xs text-[var(--gold-soft)]">Credito vendedor: S/ {(Number(item.quantity ?? 1) * Number(item.seller_credit_amount ?? 0)).toFixed(2)}</p>
                   ) : null}
+                  {item.discount_rule === "customer_recurrent_barber_product" ? <p className="mt-1 text-xs text-green-300">Cliente recurrente: {Number(item.discount_percent)}% de descuento. Precio original S/ {Number(item.original_unit_price ?? item.unit_price).toFixed(2)}.</p> : null}
                 </div>
                 <div className="flex items-center gap-2">
                   <strong>S/ {Number(item.subtotal ?? item.amount ?? 0).toFixed(2)}</strong>
@@ -281,29 +327,21 @@ export function ServiceOrderDetail({ id }: { id: string }) {
         </div>
 
         {!locked ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
+          <div className="order-[3] grid min-w-0 gap-4">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
               <h2 className="font-semibold">Agregar servicio</h2>
               <div className="mt-3 grid gap-2">
-                <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={serviceId} onChange={(event) => setServiceId(event.target.value)}>
+                <select className="w-full min-w-0 max-w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={serviceId} onChange={(event) => setServiceId(event.target.value)}>
                   <option value="">Seleccionar servicio</option>
                   {services.map((item) => <option key={item.id} value={item.id}>{item.name} - {item.price == null ? "Consultar" : `S/ ${Number(item.price).toFixed(2)}`}</option>)}
                 </select>
                 <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={addService}>{busyAction === "service" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Agregar servicio</button>
               </div>
             </div>
-            <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
-              <h2 className="font-semibold">Agregar adicional</h2>
-              <div className="mt-3 grid gap-2">
-                <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Nombre" value={extraName} onChange={(event) => setExtraName(event.target.value)} />
-                <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="number" placeholder="Monto" value={extraAmount} onChange={(event) => setExtraAmount(event.target.value)} />
-                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={addExtra}>{busyAction === "extra" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Agregar</button>
-              </div>
-            </div>
-            <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
               <h2 className="font-semibold">Agregar producto</h2>
               <div className="mt-3 grid gap-2">
-                <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={productId} onChange={(event) => setProductId(event.target.value)}>
+                <select className="w-full min-w-0 max-w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={productId} onChange={(event) => setProductId(event.target.value)}>
                   <option value="">Seleccionar producto</option>
                   {products.map((product) => {
                     const stock = product.product_branch_stock?.find((item) => item.branch_id === branch?.id)?.stock_current ?? 0;
@@ -331,7 +369,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
         ) : null}
       </div>
 
-      <aside ref={paymentRef} className={`grid h-max gap-4 rounded-lg border bg-black/35 p-4 transition-shadow ${searchParams.get("focus") === "payment" || highlightPayment ? "border-[var(--gold)] shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_0_40px_-20px_rgba(212,175,55,0.9)]" : "border-[var(--border-soft)]"}`}>
+      <aside ref={paymentRef} className={`grid h-max min-w-0 max-w-full gap-4 overflow-hidden rounded-lg border bg-black/35 p-4 transition-shadow ${searchParams.get("focus") === "payment" || highlightPayment ? "border-[var(--gold)] shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_0_40px_-20px_rgba(212,175,55,0.9)]" : "border-[var(--border-soft)]"}`}>
         <div>
           <h2 className="font-semibold">Resumen</h2>
           <div className="mt-3 grid gap-2 text-sm">
@@ -366,7 +404,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
               {order.reward_redemption_id ? <button className="rounded-lg border border-red-400/40 px-3 py-2 text-xs text-red-200" disabled={Boolean(busyAction)} onClick={removeReward}>Quitar reward</button> : null}
             </div>
             <PaymentSplitEditor total={Number(order.total ?? 0)} method={paymentMethod} splits={splits} onMethodChange={setPaymentMethod} onSplitsChange={setSplits} />
-            <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-3 font-semibold text-black disabled:opacity-60" disabled={Boolean(busyAction) || items.length === 0} onClick={pay}>{busyAction === "pay" ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />} Registrar pago</button>
+            <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-3 font-semibold text-black disabled:opacity-60" disabled={Boolean(busyAction) || billableItems.length === 0} onClick={pay}>{busyAction === "pay" ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />} Registrar pago</button>
             <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={load}>Guardar cambios</button>
           </>
         ) : null}

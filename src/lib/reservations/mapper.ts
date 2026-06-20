@@ -6,6 +6,8 @@ type ReservationRow = {
   id: string;
   status: ReservationSummary["status"];
   source: string;
+  created_at: string;
+  contacted_at?: string | null;
   branch_id: string;
   service_id: string | null;
   employee_id: string | null;
@@ -58,6 +60,8 @@ export function mapReservation(row: ReservationRow, template?: string | null, te
     id: row.id,
     status: row.status,
     source: row.source,
+    createdAt: row.created_at,
+    contactedAt: row.contacted_at ?? null,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     price: row.price,

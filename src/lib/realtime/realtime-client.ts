@@ -109,6 +109,14 @@ export function subscribeToOperationalRealtime({ branchId, onEvent, onStatus, on
     channel.on("postgres_changes", { event: "*", schema: "public", table: "product_branch_stock", filter }, () => {
       onEvent(notify("stock_changed", "Cambio de stock detectado."));
     });
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "cash_closures", filter }, (payload) => {
+      const row = payload.new as any;
+      onEvent(notify("cash_closed", `Caja ${row.status ?? "actualizada"}.`, "/app/control/caja"));
+    });
+    channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_events", filter }, (payload) => {
+      const row = payload.new as any;
+      onEvent(notify("notification_event", row.body ?? row.title ?? "Nuevo evento operativo.", row.url));
+    });
 
     channel.subscribe((status, error) => {
       if (stopped) return;

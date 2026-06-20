@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PaymentMethodBadge } from "@/components/service-orders/payment-method-badge";
 import type { BarberOption, BranchOption } from "@/lib/reservations/types";
-import { showError } from "@/lib/ui/swal";
+import { Loader2 } from "lucide-react";
+import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 
 export function CashDashboard() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -13,13 +14,21 @@ export function CashDashboard() {
   const [barberId, setBarberId] = useState("");
   const [method, setMethod] = useState("");
   const [data, setData] = useState<any>(null);
+  const [closure, setClosure] = useState<any>(null);
+  const [countedCash, setCountedCash] = useState("");
+  const [closureNotes, setClosureNotes] = useState("");
+  const [closureBusy, setClosureBusy] = useState(false);
   const [options, setOptions] = useState<{ branches: BranchOption[]; barbers: BarberOption[] }>({ branches: [], barbers: [] });
 
   async function load() {
     const params = new URLSearchParams({ date, branch_id: branchId });
     if (barberId) params.set("barber_id", barberId);
     if (method) params.set("method", method);
-    const [summaryRes, optionsRes] = await Promise.all([fetch(`/api/control/cash/summary?${params}`), fetch("/api/public/reservation-options")]);
+    const [summaryRes, optionsRes, closureRes] = await Promise.all([
+      fetch(`/api/control/cash/summary?${params}`),
+      fetch("/api/public/reservation-options"),
+      fetch(`/api/control/cash/closure?date=${date}&branch_id=${branchId}`)
+    ]);
     const summary = await summaryRes.json();
     const opts = await optionsRes.json();
     if (!summaryRes.ok) {
@@ -28,31 +37,71 @@ export function CashDashboard() {
     }
     setData(summary);
     setOptions({ branches: opts.branches ?? [], barbers: opts.barbers ?? [] });
+    if (closureRes.ok) setClosure((await closureRes.json()).closure);
   }
 
   useEffect(() => {
     load();
+    const listener = () => load();
+    window.addEventListener("lbbs:operational-realtime", listener);
+    return () => window.removeEventListener("lbbs:operational-realtime", listener);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, branchId, barberId, method]);
 
+  async function closeCash() {
+    if (closureBusy || branchId === "all") return;
+    if (!(await showConfirm("Cerrar caja", "Luego del cierre no se podran registrar cobros para esta sede y fecha."))) return;
+    setClosureBusy(true);
+    try {
+      const response = await fetch("/api/control/cash/closure", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchId, date, countedCash: Number(countedCash || 0), notes: closureNotes })
+      });
+      const result = await response.json();
+      if (!response.ok) return showError("No se pudo cerrar caja", result.error);
+      await load();
+      await showSuccess("Caja cerrada");
+    } finally {
+      setClosureBusy(false);
+    }
+  }
+
+  async function reopenCash() {
+    if (closureBusy || !closure?.id) return;
+    if (!(await showConfirm("Reabrir caja", "Esta accion es exclusiva de admin y quedara auditada."))) return;
+    setClosureBusy(true);
+    try {
+      const response = await fetch("/api/control/cash/reopen", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ closureId: closure.id, reason: closureNotes || "Reapertura operativa" })
+      });
+      const result = await response.json();
+      if (!response.ok) return showError("No se pudo reabrir caja", result.error);
+      await load();
+      await showSuccess("Caja reabierta");
+    } finally {
+      setClosureBusy(false);
+    }
+  }
+
   return (
-    <section className="grid gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <section className="grid min-w-0 gap-4">
+      <div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(0,980px)] xl:items-end">
         <div>
           <h1 className="text-3xl font-semibold">Caja base</h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">Ventas pagadas, metodos, ranking y tickets del dia.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-          <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+        <div className="grid min-w-0 gap-2 md:grid-cols-[150px_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_auto]">
+          <input className="control-input min-w-0" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+          <select className="control-input min-w-0" value={branchId} onChange={(event) => setBranchId(event.target.value)}>
             <option value="all">Todas las sedes</option>
             {options.branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
           </select>
-          <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={barberId} onChange={(event) => setBarberId(event.target.value)}>
+          <select className="control-input min-w-0" value={barberId} onChange={(event) => setBarberId(event.target.value)}>
             <option value="">Todos los barberos</option>
             {options.barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.name}</option>)}
           </select>
-          <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={method} onChange={(event) => setMethod(event.target.value)}>
+          <select className="control-input min-w-0" value={method} onChange={(event) => setMethod(event.target.value)}>
             <option value="">Todos los metodos</option>
             <option value="efectivo">efectivo</option>
             <option value="yape">yape</option>
@@ -64,7 +113,7 @@ export function CashDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Metric label="Bruto total del dia" value={`S/ ${Number(data?.grossTotal ?? 0).toFixed(2)}`} />
         <Metric label="Total cobrado" value={`S/ ${Number(data?.totalSold ?? 0).toFixed(2)}`} />
         <Metric label="Atenciones pagadas" value={String(data?.attentionCount ?? 0)} />
@@ -72,6 +121,32 @@ export function CashDashboard() {
         <Metric label="Anulado" value={`S/ ${Number(data?.voidedTotal ?? 0).toFixed(2)}`} />
         <Metric label="Servicios anulados" value={String(data?.voidedCount ?? 0)} />
       </div>
+
+      <Panel title="Cierre de caja">
+        {branchId === "all" ? (
+          <p className="text-sm text-[var(--text-muted)]">Selecciona una sede para consultar o cerrar su caja diaria.</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-2">
+              <p className="text-sm">Estado: <strong className="text-[var(--gold)]">{closure?.status ?? "abierta"}</strong></p>
+              <p className="text-sm text-[var(--text-muted)]">Efectivo esperado: S/ {Number(data?.byMethod?.find((item: any) => item.method === "efectivo")?.total ?? 0).toFixed(2)}</p>
+              <input className="control-input" type="number" placeholder="Efectivo contado" value={countedCash} onChange={(event) => setCountedCash(event.target.value)} />
+              <textarea className="control-input" placeholder="Notas o motivo de reapertura" value={closureNotes} onChange={(event) => setClosureNotes(event.target.value)} />
+            </div>
+            <div className="flex items-end gap-2">
+              {closure?.status === "closed" ? (
+                <button className="inline-flex items-center gap-2 rounded-lg border border-amber-400/50 px-4 py-2 text-amber-100 disabled:opacity-60" disabled={closureBusy} onClick={reopenCash}>
+                  {closureBusy ? <Loader2 size={16} className="animate-spin" /> : null} Reabrir caja
+                </button>
+              ) : (
+                <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" disabled={closureBusy || Number(data?.pendingTickets?.length ?? 0) > 0} onClick={closeCash}>
+                  {closureBusy ? <Loader2 size={16} className="animate-spin" /> : null} Cerrar caja
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </Panel>
 
       <div className="grid gap-3 md:grid-cols-3">
         <Metric label="Total bruto de servicios" value={`S/ ${Number(data?.serviceGross ?? 0).toFixed(2)}`} />
@@ -156,9 +231,9 @@ export function CashDashboard() {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4"><p className="text-sm text-[var(--text-muted)]">{label}</p><p className="mt-2 text-2xl font-semibold text-white">{value}</p></div>;
+  return <div className="min-w-0 rounded-xl border border-[var(--control-border)] bg-[var(--control-surface)] p-3"><p className="text-xs text-[var(--control-muted)]">{label}</p><p className="mt-1 truncate text-xl font-semibold text-[var(--control-text)]">{value}</p></div>;
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4"><h2 className="font-semibold">{title}</h2><div className="mt-3 grid gap-2">{children}</div></section>;
+  return <section className="min-w-0 rounded-xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4"><h2 className="font-semibold">{title}</h2><div className="mt-3 grid min-w-0 gap-2">{children}</div></section>;
 }

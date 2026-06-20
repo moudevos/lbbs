@@ -3,8 +3,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizePhone } from "@/lib/customers/phone";
 import { dateRangeForDay, overlaps } from "@/lib/reservations/time";
 import { syncRewardAccount } from "@/lib/rewards/server";
+import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
 
 type AdminClient = SupabaseClient<any, "public", any>;
+type CustomerLookupRow = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  normalized_phone: string | null;
+  branch_id: string | null;
+};
 
 export async function findOrCreateCustomerByPhone({
   admin,
@@ -18,14 +26,44 @@ export async function findOrCreateCustomerByPhone({
   branchId: string;
 }) {
   const normalizedPhone = normalizePhone(phone);
-  const { data: existing, error: existingError } = await admin
+  const customerSelect = "id,full_name,phone,normalized_phone,branch_id";
+  const { data: normalizedMatches, error: existingError } = await admin
     .from("customers")
-    .select("id,full_name,phone,normalized_phone,branch_id")
+    .select(customerSelect)
     .eq("normalized_phone", normalizedPhone)
-    .maybeSingle();
+    .limit(1);
 
   if (existingError) {
     return { error: existingError.message };
+  }
+
+  let existing: CustomerLookupRow | null = normalizedMatches?.[0] ?? null;
+
+  // Older customer rows may predate normalized_phone. Reuse them instead of
+  // creating a duplicate when the public reservation uses the same phone.
+  if (!existing) {
+    const { data: legacyCandidates, error: legacyError } = await admin
+      .from("customers")
+      .select(customerSelect)
+      .or(`phone.eq.${phone},phone.eq.${normalizedPhone}`)
+      .limit(10);
+
+    if (legacyError) return { error: legacyError.message };
+
+    existing =
+      legacyCandidates?.find((customer) => normalizePhone(customer.phone ?? "") === normalizedPhone) ??
+      null;
+
+    if (existing && existing.normalized_phone !== normalizedPhone) {
+      const { error: normalizeError } = await admin
+        .from("customers")
+        .update({ normalized_phone: normalizedPhone })
+        .eq("id", existing.id);
+
+      if (normalizeError && normalizeError.code !== "23505") {
+        return { error: normalizeError.message };
+      }
+    }
   }
 
   if (existing) {
@@ -40,10 +78,31 @@ export async function findOrCreateCustomerByPhone({
   const { data: created, error: createError } = await admin
     .from("customers")
     .insert({ full_name: fullName, phone, normalized_phone: normalizedPhone, branch_id: branchId })
-    .select("id,full_name,phone,normalized_phone,branch_id")
+    .select(customerSelect)
     .single();
 
   if (createError) {
+    // The unique normalized-phone index can win a race between two requests.
+    // Resolve the existing customer instead of returning an avoidable error.
+    if (createError.code === "23505") {
+      const { data: concurrentCustomer, error: concurrentError } = await admin
+        .from("customers")
+        .select(customerSelect)
+        .eq("normalized_phone", normalizedPhone)
+        .maybeSingle();
+
+      if (concurrentError || !concurrentCustomer) {
+        return { error: concurrentError?.message ?? createError.message };
+      }
+
+      return {
+        customer: concurrentCustomer,
+        created: false,
+        normalizedPhone,
+        nameDiffers: concurrentCustomer.full_name.trim().toLowerCase() !== fullName.trim().toLowerCase()
+      };
+    }
+
     return { error: createError.message };
   }
 
@@ -65,10 +124,6 @@ export async function assertReservationCanBeConfirmed({
   endsAt: Date;
   price?: number | null;
 }) {
-  if (price === null) {
-    return NextResponse.json({ error: "No se puede confirmar un servicio personalizado sin precio" }, { status: 400 });
-  }
-
   if (!employeeId) {
     return null;
   }
@@ -103,6 +158,10 @@ export async function countReservationVisitOnce(admin: AdminClient, reservationI
 
   if (error || !reservation || !reservation.customer_id || reservation.visit_counted_at) {
     return { counted: false, error: error?.message };
+  }
+  const { data: customer } = await admin.from("customers").select("phone,normalized_phone").eq("id", reservation.customer_id).maybeSingle();
+  if (isGenericCustomerPhone(customer?.normalized_phone ?? customer?.phone)) {
+    return { counted: false, error: "Cliente generico no participa en rewards." };
   }
 
   const now = new Date().toISOString();

@@ -258,3 +258,142 @@ Seguridad:
 * El token se guarda hasheado en `local_device_tokens`.
 * El modo local solo ve agenda de su sede y confirma atenciones.
 * Caja cobra despues desde pendientes de cobro.
+
+## Alcance operativo auditado (junio de 2026)
+
+Esta seccion describe el comportamiento encontrado en el repositorio. Su
+disponibilidad en Supabase depende de haber aplicado los SQL incrementales.
+
+### Reservas
+
+* `/reservar` registra reservas publicas y `/app/control/reservas` permite su
+  gestion interna.
+* La agenda se consulta desde `/app/control/agenda` y desde el dispositivo
+  asociado a una sede.
+* Una reserva puede convertirse en atencion. El flujo local deja la orden en
+  `pendiente_pago` para que Caja realice el cobro.
+* Las reservas personalizadas pueden confirmarse sin precio definitivo; el
+  trabajo realizado y su precio se completan al registrar la atencion.
+* Los recordatorios buscan reservas confirmadas proximas a 20 minutos en zona
+  horaria `America/Lima` y evitan duplicados mediante
+  `reservation_reminders`.
+
+### Atenciones desde dashboard
+
+* `/app/control/atenciones/nueva` crea atenciones para clientes existentes,
+  nuevos o genericos.
+* La orden admite varios servicios, productos, observaciones, barbero
+  responsable, servicios personalizados y cortesias.
+* Solo las ordenes `registrado` o `pendiente_pago` admiten cambios de items.
+  Las ordenes pagadas o anuladas no se editan.
+* `/app/control/atenciones/[id]` concentra items, descuentos, resumen, pagos y
+  trazabilidad.
+
+### Atenciones desde dispositivos/local
+
+* El dispositivo usa un token hasheado y queda limitado a su sede.
+* `/local/agenda` muestra la agenda y `/local/atenciones/nueva` registra una
+  atencion directa.
+* El flujo local busca clientes por celular y admite cliente generico,
+  multiples servicios, productos y servicio personalizado.
+* Las ordenes del dispositivo usan `origin = local_device` y
+  `status = pendiente_pago`; no cobran directamente y deben finalizarse en
+  Caja.
+* Confirmar una reserva desde dispositivo tambien deja su atencion pendiente de
+  cobro.
+
+### Caja, items y ticket
+
+* `/app/control/caja` lista ordenes pendientes, tickets del dia, resumen por
+  metodo y cierres.
+* Caja admite efectivo, Yape, Plin, tarjeta, transferencia, reward y pago
+  mixto.
+* El total se calcula desde los items persistidos, descuentos y rewards. Una
+  orden necesita items validos antes del pago.
+* Los productos conservan cantidad, precio original, descuento y vendedor para
+  trazabilidad y creditos.
+* El ticket se obtiene desde una API protegida y se descarga o comparte como
+  PDF termico de 80 mm generado con `jsPDF`; no captura la pantalla completa.
+
+### Rewards y descuentos
+
+* El cliente generico no acumula ni canjea rewards.
+* Las visitas se contabilizan desde atenciones elegibles pagadas, evitando
+  contar dos veces la misma orden.
+* El reward se aplica a un corte clasico antes del pago y se confirma al
+  finalizar la orden.
+* `/app/control/rewards` muestra progreso, disponibles, canjes y metricas.
+* `034_customer_product_discount_rewards_ux.sql` agrega precio original,
+  porcentaje y regla de descuento a los items.
+* La configuracion inicial aplica 10% a productos `barber_product` con al menos
+  dos visitas validas. El backend valida la elegibilidad y el resumen incorpora
+  el descuento.
+
+### Notificaciones, sonido y Push
+
+* `notification_events` conserva los avisos. Pueden marcarse como leidos,
+  descartarse individualmente o limpiarse de forma persistente.
+* El dashboard recibe Broadcast privado por sede. Los dispositivos usan el
+  canal publico separado `branch:<branch_id>:devices`.
+* La capa global muestra hasta cinco toasts, evita duplicados por ID y reproduce
+  sonido cuando el usuario lo habilita.
+* Web Push distingue suscripciones `dashboard` y `local_device` y requiere
+  configuracion VAPID para el envio real.
+* El alcance final de `036` evita que el dashboard se notifique a si mismo por
+  cada cambio: avisa una reserva nueva y una atencion creada desde dispositivo.
+* El endpoint cron de Vercel queda como fallback o prueba manual. El
+  procesamiento principal usa Supabase Cron cada cinco minutos.
+
+### SQL 029 a 036
+
+Aplicar en este orden solo los archivos que aun no existan en el Supabase del
+entorno:
+
+1. `supabase/sql/029_realtime_broadcast_notifications.sql`: eventos,
+   funcion central y triggers iniciales de Broadcast.
+2. `supabase/sql/030_supabase_cron_reservation_reminders.sql`: `pg_cron`,
+   `pg_net`, recordatorios y job cada cinco minutos.
+3. `supabase/sql/031_push_realtime_notifications_dashboard_devices.sql`:
+   descarte persistente, Push y canales separados.
+4. `supabase/sql/032_supabase_cron_push_reminders.sql`: reafirma el job y
+   agrega una funcion de prueba.
+5. No existe un archivo `033` en el repositorio auditado.
+6. `supabase/sql/034_customer_product_discount_rewards_ux.sql`: trazabilidad y
+   configuracion del descuento recurrente.
+7. `supabase/sql/036_notification_scope_operational_fixes.sql`: limita el
+   alcance de las notificaciones operativas.
+
+`supabase/sql/035_reset_operational_test_data.sql` no es una migracion normal.
+Es una herramienta destructiva y opcional para reiniciar datos operativos de
+prueba. Conserva catalogos, servicios, productos, clientes,
+empleados/usuarios, sedes, configuracion, galeria y resenas. Solo se habilita
+deliberadamente en la misma sesion:
+
+```sql
+set app.lbbs_reset_confirmation = 'RESET_LBBS_OPERATIONAL_DATA';
+```
+
+No ejecutar `035` en produccion sin respaldo y confirmacion expresa.
+
+### Validacion
+
+Comandos tecnicos:
+
+```bash
+npm run lint
+npm run build
+npm run smoke:supabase
+```
+
+Pruebas operativas recomendadas:
+
+1. Crear una reserva publica y comprobar que genera un solo aviso.
+2. Crear una atencion desde `/local`, verificar `pendiente_pago` y cobrarla en
+   Caja.
+3. Crear una orden mixta con servicio y producto; revisar items, descuento,
+   total y stock.
+4. Descargar y compartir el PDF del ticket pagado.
+5. Marcar, descartar y limpiar notificaciones.
+6. Ejecutar `select public.process_reservation_reminders();` y comprobar que no
+   duplica recordatorios.
+7. Consultar `cron.job` y `cron.job_run_details` para validar Supabase Cron.

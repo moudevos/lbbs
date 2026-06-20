@@ -9,6 +9,7 @@ import { addMinutes, overlaps, toLocalDateTime } from "@/lib/reservations/time";
 import { findOrCreateCustomerByPhone, assertReservationCanBeConfirmed } from "@/lib/reservations/server";
 import { isValidPeruMobilePhone } from "@/lib/customers/phone";
 import type { ReservationStatus } from "@/lib/reservations/types";
+import { validateOperationalSchedule } from "@/lib/reservations/availability";
 
 type CreateInternalReservationBody = {
   branchId?: string;
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   let query = admin
     .from("reservations")
-    .select("id,branch_id,service_id,employee_id,status,source,starts_at,ends_at,price,observations,branches(name,phone),customers(full_name,phone),services(name),employees(first_name,last_name),service_orders(id)")
+    .select("id,branch_id,service_id,employee_id,status,source,created_at,contacted_at,starts_at,ends_at,price,observations,branches(name,phone),customers(full_name,phone),services(name),employees(first_name,last_name),service_orders(id)")
     .gte("starts_at", fromRange.from)
     .lte("starts_at", toRange.to)
     .order("starts_at", { ascending: true });
@@ -142,12 +143,13 @@ export async function POST(request: NextRequest) {
   const isCustom = service.sku === "CUSTOM" || Boolean(body.customServiceName);
   const price = isCustom ? body.price ?? null : service.price;
 
-  if (status === "confirmado" && price === null) {
-    return NextResponse.json({ error: "No se puede confirmar un servicio personalizado sin precio" }, { status: 400 });
-  }
-
   const startsAt = toLocalDateTime(body.date, body.time);
   const endsAt = addMinutes(startsAt, service.duration_minutes || 60);
+  const scheduleError = await validateOperationalSchedule({
+    admin, branchId, employeeId: body.employeeId, date: body.date,
+    time: body.time, durationMinutes: service.duration_minutes || 60
+  });
+  if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 409 });
 
   const confirmationError = status === "confirmado"
     ? await assertReservationCanBeConfirmed({ admin, employeeId: body.employeeId, startsAt, endsAt, price })

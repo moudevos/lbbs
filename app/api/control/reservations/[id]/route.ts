@@ -5,6 +5,9 @@ import { writeAuditLog } from "@/lib/audit";
 import { addMinutes, toLocalDateTime } from "@/lib/reservations/time";
 import type { ReservationStatus } from "@/lib/reservations/types";
 import { assertReservationCanBeConfirmed } from "@/lib/reservations/server";
+import { findOrCreateCustomerByPhone } from "@/lib/reservations/server";
+import { isValidPeruMobilePhone } from "@/lib/customers/phone";
+import { validateOperationalSchedule } from "@/lib/reservations/availability";
 
 type UpdateReservationBody = {
   status?: ReservationStatus;
@@ -13,6 +16,9 @@ type UpdateReservationBody = {
   date?: string;
   time?: string;
   observations?: string | null;
+  customerName?: string;
+  customerPhone?: string;
+  serviceId?: string;
 };
 
 const allowedStatuses: ReservationStatus[] = ["pendiente", "contactado", "confirmado", "atendido", "cancelado", "no_asistio"];
@@ -27,6 +33,7 @@ type CurrentReservation = {
   ends_at: string;
   price: number | null;
   observations: string | null;
+  customer_id: string;
   services?: { duration_minutes: number | null } | { duration_minutes: number | null }[] | null;
 };
 
@@ -45,7 +52,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const admin = createAdminClient();
   const { data: current, error: currentError } = await admin
     .from("reservations")
-    .select("id,branch_id,employee_id,service_id,status,starts_at,ends_at,price,observations,services(duration_minutes)")
+    .select("id,branch_id,customer_id,employee_id,service_id,status,starts_at,ends_at,price,observations,services(duration_minutes)")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -60,6 +67,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   const patch: Record<string, unknown> = {};
+  const editsOperationalFields = body.customerName !== undefined || body.customerPhone !== undefined || body.serviceId !== undefined
+    || body.employeeId !== undefined || body.date !== undefined || body.time !== undefined;
+  if (editsOperationalFields && !["pendiente", "contactado"].includes(reservation.status)) {
+    return NextResponse.json({ error: "La reserva confirmada o final solo puede reprogramarse" }, { status: 409 });
+  }
   const newEmployeeId = body.employeeId !== undefined ? body.employeeId : reservation.employee_id;
 
   if (body.status) {
@@ -70,11 +82,40 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Usa la accion Confirmar atencion para marcar una reserva como atendida" }, { status: 400 });
     }
     patch.status = body.status;
+    if (body.status === "contactado" && reservation.status !== "contactado") patch.contacted_at = new Date().toISOString();
   }
 
   if (body.employeeId !== undefined) patch.employee_id = body.employeeId || null;
-  if (body.price !== undefined) patch.price = body.price;
+  if (body.price !== undefined) return NextResponse.json({ error: "El precio no se edita desde la reserva" }, { status: 400 });
   if (body.observations !== undefined) patch.observations = body.observations;
+
+  let duration = Array.isArray(reservation.services)
+    ? reservation.services[0]?.duration_minutes
+    : reservation.services?.duration_minutes;
+  if (body.serviceId !== undefined) {
+    const { data: service, error: serviceError } = await admin
+      .from("services").select("id,branch_id,duration_minutes,price,is_active").eq("id", body.serviceId).maybeSingle();
+    if (serviceError || !service || !service.is_active) {
+      return NextResponse.json({ error: serviceError?.message ?? "Servicio activo no encontrado" }, { status: 400 });
+    }
+    if (service.branch_id && service.branch_id !== reservation.branch_id) {
+      return NextResponse.json({ error: "El servicio no pertenece a la sede" }, { status: 400 });
+    }
+    patch.service_id = service.id;
+    patch.price = service.price;
+    duration = service.duration_minutes;
+  }
+
+  if (body.customerPhone !== undefined || body.customerName !== undefined) {
+    if (!body.customerPhone || !body.customerName || !isValidPeruMobilePhone(body.customerPhone)) {
+      return NextResponse.json({ error: "Nombre y celular peruano valido son requeridos" }, { status: 400 });
+    }
+    const customer = await findOrCreateCustomerByPhone({
+      admin, phone: body.customerPhone, fullName: body.customerName, branchId: reservation.branch_id
+    });
+    if (customer.error || !customer.customer) return NextResponse.json({ error: customer.error ?? "No se pudo resolver cliente" }, { status: 500 });
+    patch.customer_id = customer.customer.id;
+  }
 
   if (newEmployeeId) {
     const { data: barber, error: barberError } = await admin
@@ -93,11 +134,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   if (body.date && body.time) {
-    const duration = Array.isArray(reservation.services)
-      ? reservation.services[0]?.duration_minutes
-      : reservation.services?.duration_minutes;
     const startsAt = toLocalDateTime(body.date, body.time);
     const endsAt = addMinutes(startsAt, duration || 60);
+    const scheduleError = await validateOperationalSchedule({
+      admin, branchId: reservation.branch_id, employeeId: newEmployeeId,
+      date: body.date, time: body.time, durationMinutes: duration || 60
+    });
+    if (scheduleError) return NextResponse.json({ error: scheduleError }, { status: 409 });
     patch.starts_at = startsAt.toISOString();
     patch.ends_at = endsAt.toISOString();
   }

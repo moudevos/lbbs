@@ -3,7 +3,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, MessageCircle, RefreshCw, UserRound } from "lucide-react";
+import { CalendarCheck, Loader2, MessageCircle, RefreshCw, UserRound } from "lucide-react";
 import type { BarberOption, BranchOption, ReservationStatus, ReservationSummary, ServiceOption } from "@/lib/reservations/types";
 import { formatDate, formatTime } from "@/lib/reservations/time";
 import { showConfirm, showError, showSuccess, showWarning, swalThemed } from "@/lib/ui/swal";
@@ -27,6 +27,7 @@ export function ReservationBoard({ mode }: { mode: "reservas" | "agenda" }) {
   const [rescheduling, setRescheduling] = useState<ReservationSummary | null>(null);
   const [attending, setAttending] = useState<ReservationSummary | null>(null);
   const [detail, setDetail] = useState<ReservationSummary | null>(null);
+  const [editing, setEditing] = useState<ReservationSummary | null>(null);
 
   async function load() {
     setLoading(true);
@@ -51,7 +52,11 @@ export function ReservationBoard({ mode }: { mode: "reservas" | "agenda" }) {
     loadOptions();
     const listener = () => load();
     window.addEventListener("branch-scope-change", listener);
-    return () => window.removeEventListener("branch-scope-change", listener);
+    window.addEventListener("lbbs:operational-realtime", listener);
+    return () => {
+      window.removeEventListener("branch-scope-change", listener);
+      window.removeEventListener("lbbs:operational-realtime", listener);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, dateTo, status, barberId]);
 
@@ -196,7 +201,8 @@ export function ReservationBoard({ mode }: { mode: "reservas" | "agenda" }) {
           }}
         />
       ) : null}
-      {detail ? <ReservationDetailModal reservation={detail} onClose={() => setDetail(null)} onReschedule={() => { setRescheduling(detail); setDetail(null); }} onViewAttention={() => detail.serviceOrderId && router.push(`/app/control/atenciones/${detail.serviceOrderId}`)} /> : null}
+      {detail ? <ReservationDetailModal reservation={detail} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); }} onReschedule={() => { setRescheduling(detail); setDetail(null); }} onViewAttention={() => detail.serviceOrderId && router.push(`/app/control/atenciones/${detail.serviceOrderId}`)} /> : null}
+      {editing ? <EditReservationModal reservation={editing} options={options} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await load(); }} /> : null}
       {attending ? (
         <AttendBarberModal
           reservation={attending}
@@ -220,6 +226,7 @@ export function ReservationBoard({ mode }: { mode: "reservas" | "agenda" }) {
                 <h2 className="mt-3 text-lg font-semibold">{reservation.customer}</h2>
                 <p className="mt-1 text-sm text-[var(--text-muted)]">{reservation.service} - {reservation.branch} - Barbero: {reservation.barber ?? "Por asignar"}</p>
                 <p className="mt-1 text-sm text-[var(--text-muted)]">Celular: {reservation.customerPhone || "No registrado"} - Precio: {reservation.price == null ? "Por confirmar" : `S/ ${reservation.price}`}</p>
+                <p className="mt-1 text-xs text-[var(--text-faint)]">Registrada: {formatDate(reservation.createdAt)} {formatTime(reservation.createdAt)} - Origen: {reservation.source}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" type="button" onClick={async () => {
@@ -318,10 +325,6 @@ function InternalReservationModal({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (form.status === "confirmado" && isCustom && !form.price) {
-      await swalThemed.fire("Precio requerido", "No se puede confirmar un servicio personalizado sin precio.", "warning");
-      return;
-    }
     onSaving(true);
     const response = await fetch("/api/control/reservations", {
       method: "POST",
@@ -675,15 +678,18 @@ function RescheduleModal({
 function ReservationDetailModal({
   reservation,
   onClose,
+  onEdit,
   onReschedule,
   onViewAttention
 }: {
   reservation: ReservationSummary;
   onClose: () => void;
+  onEdit: () => void;
   onReschedule: () => void;
   onViewAttention: () => void;
 }) {
   const canReschedule = reservation.status === "pendiente" || reservation.status === "contactado" || reservation.status === "confirmado";
+  const canEdit = reservation.status === "pendiente" || reservation.status === "contactado";
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 px-4 py-6">
@@ -706,6 +712,9 @@ function ReservationDetailModal({
           <DetailItem label="Precio" value={reservation.price == null ? "Por confirmar" : `S/ ${reservation.price}`} />
           <DetailItem label="Estado" value={reservation.status} />
           <DetailItem label="Origen" value={reservation.source} />
+          <DetailItem label="Registrada" value={`${formatDate(reservation.createdAt)} ${formatTime(reservation.createdAt)}`} />
+          <DetailItem label="Cita" value={`${formatDate(reservation.startsAt)} ${formatTime(reservation.startsAt)}`} />
+          <DetailItem label="Contactada" value={reservation.contactedAt ? `${formatDate(reservation.contactedAt)} ${formatTime(reservation.contactedAt)}` : "Sin contacto registrado"} />
           <DetailItem label="Atencion vinculada" value={reservation.serviceOrderId ? reservation.serviceOrderId : "Sin atencion vinculada"} />
           <DetailItem label="Historial basico" value={reservation.observations || "Sin cambios registrados en observaciones."} wide />
         </div>
@@ -722,12 +731,92 @@ function ReservationDetailModal({
             <MessageCircle size={16} />
             WhatsApp
           </button>
+          {canEdit ? <button type="button" className="rounded-lg border border-[var(--gold)] px-3 py-2 text-sm text-[var(--gold-soft)]" onClick={onEdit}>Editar reserva</button> : null}
           {canReschedule ? <button type="button" className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={onReschedule}>Reprogramar</button> : null}
           {reservation.serviceOrderId ? <button type="button" className="rounded-lg bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-black" onClick={onViewAttention}>Ver atencion</button> : null}
         </div>
       </div>
     </div>
   );
+}
+
+function EditReservationModal({
+  reservation,
+  options,
+  onClose,
+  onSaved
+}: {
+  reservation: ReservationSummary;
+  options: { branches: BranchOption[]; services: ServiceOption[]; barbers: BarberOption[] };
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const initial = peruInputParts(reservation.startsAt);
+  const [form, setForm] = useState({
+    customerName: reservation.customer,
+    customerPhone: reservation.customerPhone,
+    serviceId: reservation.serviceId ?? "",
+    employeeId: reservation.barberId ?? "",
+    date: initial.date,
+    time: initial.time
+  });
+  const [saving, setSaving] = useState(false);
+  const services = options.services.filter((item) => !item.branchId || item.branchId === reservation.branchId);
+  const barbers = options.barbers.filter((item) => item.branchId === reservation.branchId);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || saving) return;
+      void showConfirm("Cambios sin guardar", "Deseas salir sin guardar la edicion?").then((confirmed) => confirmed && onClose());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, saving]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/control/reservations/${reservation.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form)
+      });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo editar la reserva", data.error);
+      await onSaved();
+      await showSuccess("Reserva editada");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 px-4 py-6">
+      <form onSubmit={submit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-main)] p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-xs uppercase tracking-[0.2em] text-[var(--gold-soft)]">Edicion operativa</p><h2 className="mt-2 text-2xl font-semibold">Editar reserva</h2></div>
+          <button type="button" className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={onClose}>Cerrar</button>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <Field label="Nombre" value={form.customerName} onChange={(value) => setForm({ ...form, customerName: value })} />
+          <Field label="Celular" value={form.customerPhone} onChange={(value) => setForm({ ...form, customerPhone: value })} />
+          <label className="text-sm text-[var(--text-muted)]">Servicio<select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={form.serviceId} onChange={(event) => setForm({ ...form, serviceId: event.target.value })}>{services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label className="text-sm text-[var(--text-muted)]">Barbero<select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })}><option value="">Por asignar</option>{barbers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <Field label="Fecha" type="date" value={form.date} onChange={(value) => setForm({ ...form, date: value })} />
+          <Field label="Hora" type="time" value={form.time} onChange={(value) => setForm({ ...form, time: value })} />
+        </div>
+        <button disabled={saving} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-3 font-semibold text-black disabled:opacity-60">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : null} Guardar cambios
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function peruInputParts(value: string) {
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
+  const time = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Lima", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
+  return { date, time };
 }
 
 function DetailItem({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {

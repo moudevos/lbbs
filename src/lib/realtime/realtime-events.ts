@@ -1,12 +1,4 @@
-export type RealtimeEventType =
-  | "reservation_created"
-  | "reservation_status_changed"
-  | "reservation_confirmed"
-  | "service_order_created"
-  | "service_order_pending_payment"
-  | "service_order_paid"
-  | "service_order_voided"
-  | "stock_changed";
+export type RealtimeEventType = string;
 
 export type RealtimeNotification = {
   id: string;
@@ -19,7 +11,7 @@ export type RealtimeNotification = {
 };
 
 export function eventTitle(type: RealtimeEventType) {
-  const labels: Record<RealtimeEventType, string> = {
+  const labels: Record<string, string> = {
     reservation_created: "Nueva reserva",
     reservation_status_changed: "Reserva actualizada",
     reservation_confirmed: "Reserva confirmada",
@@ -27,7 +19,9 @@ export function eventTitle(type: RealtimeEventType) {
     service_order_pending_payment: "Pendiente de cobro",
     service_order_paid: "Atencion pagada",
     service_order_voided: "Atencion anulada",
-    stock_changed: "Stock actualizado"
+    stock_changed: "Stock actualizado",
+    cash_closed: "Cierre de caja",
+    notification_event: "Notificacion operativa"
   };
-  return labels[type];
+  return labels[type] ?? "Notificacion operativa";
 }
