@@ -2,18 +2,28 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin, requireEmployee } from "@/lib/control/api";
 import { nextCode } from "@/lib/control/codes";
 import { writeAuditLog } from "@/lib/audit";
+import { resolvePublicImageUrl } from "@/lib/storage/resolve-public-image-url";
 
 export async function GET() {
   const context = await requireEmployee();
   if (!context.ok) return context.error;
 
-  let query = context.admin.from("branches").select("id,code,name,address,phone,is_active").order("code");
+  let query = context.admin.from("branches").select("id,code,name,address,phone,image_path,image_url,image_alt,is_active").order("code");
   if (context.employee.role !== "admin" && context.employee.branchId) {
     query = query.eq("id", context.employee.branchId);
   }
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ branches: data ?? [] });
+  const branches = await Promise.all((data ?? []).map(async (branch) => ({
+    ...branch,
+    image_url: await resolvePublicImageUrl({
+      admin: context.admin,
+      bucket: "landing-assets",
+      path: branch.image_path,
+      fallback: branch.image_url
+    })
+  })));
+  return NextResponse.json({ branches });
 }
 
 export async function POST(request: NextRequest) {

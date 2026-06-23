@@ -784,23 +784,24 @@ body {
 .option-card {
   position: relative;
   border-radius: 1rem;
-  border: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, rgba(28, 24, 14, 0.55), rgba(14, 13, 10, 0.85));
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease, background 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
   text-align: left;
   width: 100%;
 }
 .option-card:hover {
-  border-color: var(--border-strong);
-  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.045);
+  transform: scale(1.01);
 }
 .option-card:active {
   transform: translateY(0);
 }
 .option-card[data-selected="true"] {
-  border-color: var(--gold);
-  background: linear-gradient(180deg, rgba(56, 46, 18, 0.7), rgba(20, 17, 9, 0.9));
-  box-shadow: 0 0 0 1px var(--gold), 0 16px 40px -18px rgba(212, 175, 55, 0.7);
+  border-color: rgba(244, 171, 73, 0.75);
+  background: rgba(244, 171, 73, 0.08);
+  box-shadow: none;
 }
 
 .option-check {
@@ -808,8 +809,8 @@ body {
   top: 0.85rem;
   right: 0.85rem;
   display: inline-flex;
-  height: 1.6rem;
-  width: 1.6rem;
+  height: 1.4rem;
+  width: 1.4rem;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
@@ -821,7 +822,7 @@ body {
 .slot-chip {
   border-radius: 0.7rem;
   border: 1px solid var(--border-soft);
-  background: rgba(20, 18, 12, 0.7);
+  background: rgba(255, 255, 255, 0.025);
   color: var(--text-main);
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
@@ -840,7 +841,7 @@ body {
   width: 100%;
   border-radius: 0.85rem;
   border: 1px solid var(--border-soft);
-  background: rgba(12, 11, 8, 0.85);
+  background: rgba(255, 255, 255, 0.035);
   padding: 0.85rem 1rem;
   color: var(--text-main);
   color-scheme: dark;
@@ -865,14 +866,82 @@ body {
 
 /* Barra de progreso del wizard */
 .progress-seg {
-  height: 4px;
+  height: 1px;
   border-radius: 9999px;
   background: rgba(212, 175, 55, 0.16);
   transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 .progress-seg[data-on="true"] {
-  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
-  box-shadow: 0 0 14px -2px rgba(212, 175, 55, 0.7);
+  background: rgba(244, 171, 73, 0.85);
+  box-shadow: none;
+}
+
+.reservation-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.reservation-secondary-button:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+}
+.reservation-icon,
+.reservation-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(244, 171, 73, 0.3);
+  background: rgba(244, 171, 73, 0.07);
+  color: var(--gold-soft);
+}
+.reservation-icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.75rem;
+}
+.reservation-avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.reservation-step {
+  animation: reservation-step-in 0.28s ease both;
+}
+@keyframes reservation-step-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 639px) {
+  .reservation-brand-header .flex.items-center.justify-center {
+    display: none;
+  }
+  .reservation-progress {
+    position: relative;
+    padding-top: 1.75rem;
+  }
+  .reservation-progress::before {
+    content: attr(aria-label);
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reservation-step { animation: none; }
 }
 
 /* ===== SweetAlert2 tematizado ===== */

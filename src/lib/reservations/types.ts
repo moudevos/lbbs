@@ -15,10 +15,14 @@ export type ServiceOption = ReservationOption & {
   durationMinutes: number;
   price: number | null;
   branchId?: string | null;
+  description?: string | null;
 };
 
 export type BarberOption = ReservationOption & {
   branchId: string | null;
+  nickname?: string | null;
+  specialty?: string | null;
+  profilePhotoUrl?: string | null;
 };
 
 export type ReservationSummary = {

@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -11,12 +13,15 @@ import {
   MapPin,
   MessageCircle,
   LoaderCircle,
+  Clock3,
+  Palette,
   Pencil,
   RotateCcw,
   Scissors,
   Sparkles,
   Store,
-  UserRound
+  UserRound,
+  WandSparkles
 } from "lucide-react";
 import { swalThemed } from "@/lib/ui/swal";
 import type { BarberOption, BranchOption, ServiceOption } from "@/lib/reservations/types";
@@ -43,6 +48,25 @@ function emptyReservationForm() {
     time: "",
     observations: ""
   };
+}
+
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function reservationServiceIcon(name: string) {
+  const normalized = name.toLocaleLowerCase("es");
+  if (/(barba|perfilado)/.test(normalized)) return UserRound;
+  if (/(facial|limpieza|mascarilla)/.test(normalized)) return Sparkles;
+  if (/(color|tinte|platinado|mecha)/.test(normalized)) return Palette;
+  if (/(alisado|cabello|peinado)/.test(normalized)) return WandSparkles;
+  return Scissors;
 }
 
 export function PublicReservationForm({ initialMainContact }: { initialMainContact: { phone: string | null } }) {
@@ -195,15 +219,15 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-10">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Link href="/" className="landing-secondary-button inline-flex items-center gap-2 px-4 py-2 text-sm"><ArrowLeft size={16} /> Volver al inicio</Link>
-        <Link href="/" className="text-sm text-[var(--text-muted)] transition hover:text-[var(--landing-gold-soft)]">Abrir landing</Link>
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <Link href="/" className="reservation-secondary-button"><ArrowLeft size={15} /> Volver al inicio</Link>
+        <Link href="/" className="hidden text-xs text-[var(--text-muted)] transition hover:text-white sm:block">La Bajadita Barber Studio</Link>
       </div>
       <BrandHeader contactPhone={contactPhone} contactUrl={contactUrl} />
       <ProgressBar step={step} />
 
-      <div className="mt-6 rounded-3xl border border-[var(--landing-border)] bg-[var(--landing-panel)]/90 p-5 shadow-[0_35px_100px_-45px_rgba(234,157,77,0.55)] backdrop-blur sm:p-7">
+      <div key={step} className="reservation-step mt-6 rounded-3xl border border-white/10 bg-white/[0.035] p-5 shadow-2xl backdrop-blur md:p-7">
         {loadingOptions ? <LoadingPanel label="Cargando sedes, servicios y especialistas..." /> : null}
         {!loadingOptions && optionsError ? <ErrorPanel message={optionsError} /> : null}
         {!loadingOptions && !optionsError ? <>
@@ -240,7 +264,14 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
             slots={slots}
             loading={loading}
             loadingSlots={loadingSlots}
-            summary={{ branch: selectedBranch?.name ?? null, service: selectedService?.name ?? null }}
+            summary={{
+              branch: selectedBranch?.name ?? null,
+              service: selectedService?.name ?? null,
+              barber: form.employeeId
+                ? branchBarbers.find((barber) => barber.id === form.employeeId)?.name ?? null
+                : "Cualquiera disponible",
+              price: selectedService?.price ?? null
+            }}
             onBack={() => goTo(3)}
             onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
             onSubmit={submit}
@@ -254,13 +285,13 @@ export function PublicReservationForm({ initialMainContact }: { initialMainConta
 
 function BrandHeader({ contactPhone, contactUrl }: { contactPhone: string | null; contactUrl: string | null }) {
   return (
-    <header className="text-center">
+    <header className="reservation-brand-header text-center">
       <Divider />
-      <h1 className="text-gold-gradient mt-3 text-4xl font-black tracking-[0.06em] sm:text-5xl">LA BAJADITA</h1>
+      <h1 className="text-gold-gradient mt-3 text-3xl font-black tracking-[0.06em] sm:text-4xl">LA BAJADITA</h1>
       <p className="mt-2 text-xs font-semibold tracking-[0.42em] text-[var(--gold-soft)] sm:text-sm">BARBER STUDIO · IQUITOS</p>
       <Divider className="mt-3" />
       <p className="mt-4 text-sm text-[var(--text-muted)]">Atención de {CONTACT_HOURS}</p>
-      {contactUrl ? <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#4ade80]/40 bg-[#4ade80]/5 px-4 py-2 text-sm font-bold text-[#4ade80]"><MessageCircle size={18} /> Consultar por WhatsApp {contactPhone}</a> : null}
+      {contactUrl ? <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#4ade80]/30 bg-[#4ade80]/10 px-3 py-2 text-xs font-semibold text-[#86efac] transition hover:bg-[#4ade80]/15"><MessageCircle size={15} /> WhatsApp {contactPhone}</a> : null}
     </header>
   );
 }
@@ -277,7 +308,7 @@ function Divider({ className = "" }: { className?: string }) {
 
 function ProgressBar({ step }: { step: number }) {
   return (
-    <div className="mt-7 grid grid-cols-4 gap-2">
+    <div className="reservation-progress mt-7 grid grid-cols-4 gap-2" aria-label={`Paso ${step} de ${TOTAL_STEPS}`}>
       {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
         <span key={index} className="progress-seg" data-on={index < step} />
       ))}
@@ -287,13 +318,13 @@ function ProgressBar({ step }: { step: number }) {
 
 function StepHeading({ index, kicker, icon: Icon, title, hint }: { index: number; kicker: string; icon: typeof MapPin; title: string; hint: string }) {
   return (
-    <div className="mb-5">
+    <div className="mb-6">
       <div className="flex items-center gap-2">
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--gold)] text-sm font-bold text-black">{index}</span>
         <p className="text-xs font-bold tracking-[0.2em] text-[var(--gold-soft)]">PASO {index} DE {TOTAL_STEPS} · {kicker}</p>
       </div>
-      <h2 className="mt-3 flex items-center gap-2 text-2xl font-bold text-white">
-        <Icon size={24} className="text-[var(--gold)]" /> {title}
+      <h2 className="mt-3 flex items-center gap-2 text-xl font-bold text-white sm:text-2xl">
+        <Icon size={21} className="text-[var(--gold)]" /> {title}
       </h2>
       <p className="mt-1 text-sm italic text-[var(--text-muted)]">{hint}</p>
     </div>
@@ -302,7 +333,7 @@ function StepHeading({ index, kicker, icon: Icon, title, hint }: { index: number
 
 function BackButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="mb-4 inline-flex items-center gap-2 rounded-xl border border-[var(--border-soft)] px-4 py-2 text-sm text-[var(--text-muted)] transition hover:border-[var(--border-strong)] hover:text-white">
+    <button type="button" onClick={onClick} className="reservation-secondary-button mb-5">
       <ArrowLeft size={16} /> {label}
     </button>
   );
@@ -335,13 +366,13 @@ function StepBranch({
         {visible.map((branch) => {
           const isSelected = branch.id === selectedId;
           return (
-            <button key={branch.id} type="button" onClick={() => onSelect(branch.id)} className="option-card p-5" data-selected={isSelected}>
+            <button key={branch.id} type="button" onClick={() => onSelect(branch.id)} className="option-card p-4" data-selected={isSelected}>
               {isSelected ? <span className="option-check"><Check size={15} strokeWidth={3} /></span> : null}
-              <div className="flex flex-col items-center gap-3 py-2 text-center">
-                <Store size={30} className="text-[var(--gold)]" />
+              <div className="flex items-center gap-3 text-left">
+                <span className="reservation-icon"><Store size={19} /></span>
                 <div>
-                  <p className="text-lg font-bold text-white">{branch.name}</p>
-                  {branch.phone ? <p className="mt-1 text-sm text-[var(--text-muted)]">{branch.phone}</p> : null}
+                  <p className="text-base font-semibold text-white">{branch.name}</p>
+                  {branch.phone ? <p className="mt-1 text-xs text-[var(--text-muted)]">{branch.phone}</p> : null}
                 </div>
               </div>
             </button>
@@ -357,7 +388,7 @@ function StepBranch({
         </button>
       ) : null}
 
-      <button type="button" onClick={onContinue} disabled={!selectedId} className="btn-gold mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-bold tracking-wide">
+      <button type="button" onClick={onContinue} disabled={!selectedId} className="btn-gold mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold tracking-wide">
         CONTINUAR <ArrowRight size={18} />
       </button>
     </div>
@@ -391,10 +422,11 @@ function StepService({
 
       {customService ? (
         <div className="mb-4">
-          <button type="button" onClick={() => onCustomNote(customNote)} className="option-card w-full border-dashed p-6 text-center" data-selected={customSelected} aria-pressed={customSelected}>
+          <button type="button" onClick={() => onCustomNote(customNote)} className="option-card w-full border-dashed p-5 text-center" data-selected={customSelected} aria-pressed={customSelected}>
             <div className="flex flex-col items-center gap-2" onClick={(event) => { event.stopPropagation(); }}>
-              <Pencil size={26} className="text-[var(--gold)]" />
-              <p className="text-lg font-bold text-[var(--gold-soft)]">Otros / Personalizado</p>
+              <span className="reservation-icon"><Pencil size={18} /></span>
+              <p className="text-base font-bold text-white">Otros servicios</p>
+              <p className="text-sm font-semibold text-[var(--gold-soft)]">Consultar</p>
               <p className="text-xs font-bold tracking-wide text-[var(--text-muted)]">¿NO ENCUENTRA SU SERVICIO?</p>
               <input
                 value={customNote}
@@ -415,17 +447,21 @@ function StepService({
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {standardServices.map((service) => {
           const isSelected = service.id === selectedId;
+          const ServiceIcon = reservationServiceIcon(service.name);
           return (
-            <button key={service.id} type="button" onClick={() => onSelect(service.id)} className="option-card p-5 text-center" data-selected={isSelected}>
+            <button key={service.id} type="button" onClick={() => onSelect(service.id)} className="option-card min-h-52 p-5 text-left" data-selected={isSelected}>
               {isSelected ? <span className="option-check"><Check size={15} strokeWidth={3} /></span> : null}
-              <div className="flex flex-col items-center gap-2 py-1">
-                <Scissors size={24} className="text-[var(--gold)]" />
-                <p className="text-base font-bold text-white">{service.name}</p>
-                <p className="text-2xl font-black text-[var(--gold)]">{service.price == null ? "A consultar" : `S/ ${Number(service.price).toFixed(0)}`}</p>
-                <p className="text-xs text-[var(--text-muted)]">{service.durationMinutes} min aprox</p>
+              <div className="flex h-full flex-col items-start gap-2">
+                <span className="reservation-icon"><ServiceIcon size={18} /></span>
+                <p className="line-clamp-2 text-base font-semibold text-white">{service.name}</p>
+                <p className="line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">{service.description || "Servicio profesional con acabado premium."}</p>
+                <div className="mt-auto flex w-full items-center gap-2 pt-3 text-xs text-[var(--gold-soft)]">
+                  <Clock3 size={14} />
+                  <p>{service.durationMinutes ? `${service.durationMinutes} min` : "Duración variable"}</p>
+                </div>
               </div>
             </button>
           );
@@ -444,25 +480,26 @@ function StepBarber({ barbers, selectedId, onBack, onSelect }: { barbers: Barber
       <BackButton label="Cambiar servicio" onClick={onBack} />
       <StepHeading index={3} kicker="ELIJA BARBERO" icon={UserRound} title="¿Con qué barbero prefiere atenderse?" hint={'Si no tiene preferencia, elija "Cualquiera disponible"'} />
 
-      <button type="button" onClick={() => onSelect("")} className="option-card mb-4 w-full p-6 text-center" data-selected={selectedId === ""}>
+      <button type="button" onClick={() => onSelect("")} className="option-card mb-4 w-full p-4 text-left" data-selected={selectedId === ""}>
         {selectedId === "" ? <span className="option-check"><Check size={15} strokeWidth={3} /></span> : null}
-        <div className="flex flex-col items-center gap-2">
-          <Sparkles size={28} className="text-[var(--gold)]" />
-          <p className="text-lg font-bold text-white">Cualquiera disponible</p>
-          <p className="text-sm text-[var(--text-muted)]">Le asignamos el barbero según disponibilidad</p>
+        <div className="flex items-center gap-3">
+          <span className="reservation-avatar"><Sparkles size={21} /></span>
+          <div><p className="text-base font-semibold text-white">Cualquiera disponible</p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">Le asignamos el barbero según disponibilidad</p></div>
         </div>
       </button>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {barbers.map((barber) => {
           const isSelected = barber.id === selectedId;
           return (
-            <button key={barber.id} type="button" onClick={() => onSelect(barber.id)} className="option-card p-5 text-center" data-selected={isSelected}>
+            <button key={barber.id} type="button" onClick={() => onSelect(barber.id)} className="option-card p-4 text-left" data-selected={isSelected}>
               {isSelected ? <span className="option-check"><Check size={15} strokeWidth={3} /></span> : null}
-              <div className="flex flex-col items-center gap-2 py-1">
-                <UserRound size={26} className="text-[var(--gold)]" />
-                <p className="text-base font-bold text-white">{barber.name}</p>
-                <p className="text-xs text-[var(--text-muted)]">Barbero</p>
+              <div className="flex items-center gap-3">
+                <span className="reservation-avatar overflow-hidden">{barber.profilePhotoUrl ? <img src={barber.profilePhotoUrl} alt={barber.name} className="h-full w-full object-cover" /> : getInitials(barber.name)}</span>
+                <div className="min-w-0"><p className="truncate text-sm font-semibold text-white">{barber.name}</p>
+                <p className="mt-1 truncate text-xs text-[var(--gold-soft)]">{barber.nickname || "\u00a0"}</p>
+                <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{barber.specialty || "Barbero profesional"}</p></div>
               </div>
             </button>
           );
@@ -489,7 +526,7 @@ function StepDetails({
   slots: string[];
   loading: boolean;
   loadingSlots: boolean;
-  summary: { branch: string | null; service: string | null };
+  summary: { branch: string | null; service: string | null; barber: string | null; price: number | null };
   onBack: () => void;
   onChange: (patch: Partial<{ customerName: string; customerPhone: string; date: string; time: string; observations: string }>) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -500,9 +537,14 @@ function StepDetails({
       <StepHeading index={4} kicker="SUS DATOS" icon={CalendarDays} title="¿Cuándo desea su cita?" hint="Complete sus datos y la fecha que desea atenderse" />
 
       {summary.branch || summary.service ? (
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="mb-6 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">Resumen de su reserva</p>
+          <div className="flex flex-wrap gap-2">
           {summary.branch ? <span className="rounded-full border border-[var(--border-soft)] bg-black/40 px-3 py-1 text-xs text-[var(--gold-soft)]">{summary.branch}</span> : null}
           {summary.service ? <span className="rounded-full border border-[var(--border-soft)] bg-black/40 px-3 py-1 text-xs text-[var(--gold-soft)]">{summary.service}</span> : null}
+          {summary.barber ? <span className="rounded-full border border-[var(--border-soft)] bg-black/40 px-3 py-1 text-xs text-[var(--gold-soft)]">{summary.barber}</span> : null}
+          <span className="rounded-full border border-[var(--border-soft)] bg-black/40 px-3 py-1 text-xs text-[var(--gold-soft)]">{summary.price == null ? "Precio por confirmar" : `S/ ${Number(summary.price).toFixed(0)}`}</span>
+          </div>
         </div>
       ) : null}
 
@@ -529,7 +571,7 @@ function StepDetails({
           ) : slots.length === 0 ? (
             <p className="rounded-xl border border-[var(--border-soft)] bg-black/40 px-4 py-3 text-sm text-[var(--text-muted)]">No hay horarios disponibles para esta fecha. Pruebe con otro día.</p>
           ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {slots.map((slot) => (
                 <button key={slot} type="button" className="slot-chip px-2 py-2 text-sm" data-selected={form.time === slot} onClick={() => onChange({ time: slot })}>
                   {slot}
@@ -545,7 +587,7 @@ function StepDetails({
         </label>
       </div>
 
-      <button type="submit" disabled={loading} className="btn-gold mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-bold tracking-wide">
+      <button type="submit" disabled={loading} className="btn-gold mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold tracking-wide">
         {loading ? <><LoaderCircle size={18} className="animate-spin" /> ENVIANDO...</> : <>CONFIRMAR MI RESERVA <Check size={18} strokeWidth={3} /></>}
       </button>
     </form>

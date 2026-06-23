@@ -42,6 +42,8 @@ export type LandingBranch = {
   name: string;
   address: string | null;
   phone: string | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
 };
 
 export type LandingSettings = {
@@ -138,7 +140,6 @@ async function getServices(admin: ReturnType<typeof createAdminClient>) {
     .from("services")
     .select("id,name,description,duration_minutes,price,branch_id,branches!inner(name,code)")
     .eq("is_active", true)
-    .eq("branches.code", "SED-002")
     .order("name");
 
   if (error) return [];
@@ -216,18 +217,25 @@ async function getReviews(admin: ReturnType<typeof createAdminClient>) {
 async function getBranches(admin: ReturnType<typeof createAdminClient>) {
   const { data, error } = await admin
     .from("branches")
-    .select("id,code,name,address,phone")
+    .select("id,code,name,address,phone,image_path,image_url,image_alt")
     .eq("is_active", true)
     .order("name");
 
   if (error) return [];
-  return (data ?? []).map((branch) => ({
+  return Promise.all((data ?? []).map(async (branch) => ({
     id: branch.id,
     code: branch.code,
     name: branch.name,
     address: branch.address ?? null,
-    phone: branch.phone ?? null
-  }));
+    phone: branch.phone ?? null,
+    imageUrl: await resolvePublicImageUrl({
+      admin,
+      bucket: "landing-assets",
+      path: branch.image_path,
+      fallback: branch.image_url
+    }),
+    imageAlt: branch.image_alt?.trim() || `Sede ${branch.name} de La Bajadita Barber Studio`
+  })));
 }
 
 async function getSettings(admin: ReturnType<typeof createAdminClient>) {

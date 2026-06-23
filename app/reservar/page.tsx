@@ -4,7 +4,7 @@ import { getMainContact } from "@/lib/public-contact/get-main-contact";
 export default async function ReservarPage() {
   const mainContact = await getMainContact();
   return (
-    <main className="landing-public min-h-screen bg-[radial-gradient(circle_at_top,rgba(234,157,77,0.12),transparent_30%),#050A0D]">
+    <main className="landing-public min-h-screen overflow-x-hidden bg-[#050A0D] px-4 py-6 sm:px-6 lg:px-8">
       <PublicReservationForm initialMainContact={mainContact} />
     </main>
   );

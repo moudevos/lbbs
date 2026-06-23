@@ -8,6 +8,7 @@ import { WorkDetailModal } from "./work-detail-modal";
 import type { LandingGalleryItem } from "@/lib/public/landing-data";
 import { trackEvent } from "@/lib/analytics/track-event";
 import { useLandingLanguage } from "./landing-language-provider";
+import { landingSocialLinks } from "@/lib/landing/social-links";
 
 const VISIBLE_COUNT = 5;
 const ROTATION_MS = 60000;
@@ -65,9 +66,17 @@ export function WorkCollage({ items, socialLinks, phones }: { items: LandingGall
   return (
     <section id="trabajo" className="relative scroll-mt-24 overflow-hidden bg-[#050505] py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-12 max-w-3xl">
+        <div className="mb-5 max-w-3xl">
           <LandingSectionTitle align="left" eyebrow={t("Nuestro trabajo", "Our work")} title={t("Cortes que hablan por ti", "Haircuts that speak for you")} description={t("Cada acabado refleja precisión, estilo y la experiencia de una barbería premium en Iquitos.", "Every finish reflects precision, style and the experience of a premium barbershop in Iquitos.")} />
         </div>
+
+        {landingSocialLinks.instagram ? (
+          <div className="mb-7 flex md:justify-end">
+            <a href={landingSocialLinks.instagram} target="_blank" rel="noopener noreferrer" onClick={() => trackEvent("social_click", { network: "Instagram", location: "work_collage" })} className="inline-flex w-fit items-center gap-2 rounded-full border border-[rgba(244,171,73,0.55)] px-5 py-2.5 text-sm font-semibold text-[var(--landing-gold-soft)] transition hover:bg-[var(--landing-gold)] hover:text-black">
+              <Instagram size={16} /> {t("Ver más trabajos en Instagram", "See more work on Instagram")}
+            </a>
+          </div>
+        ) : null}
 
         {!items.length ? <GalleryEmpty socialLinks={socialLinks} phones={phones} /> : (
           <>

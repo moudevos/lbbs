@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   let query = context.admin
     .from("products")
-    .select("id,sku,name,description,category,sale_price,cost,branch_id,is_active,counts_for_seller_credit,seller_credit_amount,branches(name),product_branch_stock(id,branch_id,stock_current,stock_minimum,updated_at,branches(name))")
+    .select("id,sku,name,description,category,sale_price,cost,cost_price,branch_id,is_active,counts_for_seller_credit,seller_credit_amount,branches(name),product_branch_stock(id,branch_id,stock_current,stock_minimum,updated_at,branches(name))")
     .order("sku");
 
   if (context.employee.role === "admin") {
@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     category: body.category ?? null,
     sale_price: Number(body.salePrice ?? 0),
     cost: body.cost === "" || body.cost == null ? null : Number(body.cost),
+    cost_price: body.cost === "" || body.cost == null ? 0 : Number(body.cost),
     branch_id: body.branchId || null,
     counts_for_seller_credit: Boolean(body.countsForSellerCredit),
     seller_credit_amount: Number(body.sellerCreditAmount ?? 2),

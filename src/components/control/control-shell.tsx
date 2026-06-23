@@ -31,6 +31,7 @@ const icons = {
   Productos: ReceiptText,
   Produccion: BarChart3,
   Liquidaciones: ReceiptText,
+  "Beneficios empleados": Gift,
   Bonos: Award,
   Resenas: MessageSquareText,
   Rankings: BarChart3,
@@ -174,7 +175,7 @@ function groupModules(items: { label: string; href: string }[]) {
   const groups = [
     { title: "Gestion", labels: ["Clientes", "Empleados", "Servicios", "Productos", "Sedes", "Rewards"] },
     { title: "Comercial", labels: ["Landing / Galeria", "Resenas", "Rankings", "WhatsApp/Plantillas", "Dispositivos"] },
-    { title: "Finanzas/Produccion", labels: ["Produccion", "Bonos", "Liquidaciones"] },
+    { title: "Finanzas/Produccion", labels: ["Produccion", "Bonos", "Liquidaciones", "Beneficios empleados"] },
     { title: "Sistema", labels: ["Configuracion", "Auditoria"] }
   ];
   return groups
