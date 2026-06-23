@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { VercelPublicAnalytics } from "@/components/analytics/vercel-public-analytics";
 import { PwaRegistration } from "@/components/pwa/pwa-registration";
 import "./globals.css";
 
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <PwaRegistration />
         <GoogleAnalytics />
+        <VercelPublicAnalytics />
       </body>
     </html>
   );
