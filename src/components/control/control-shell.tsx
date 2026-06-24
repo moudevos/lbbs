@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Award, BarChart3, CalendarCheck, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Gift, Images, MonitorSmartphone, MessageSquareText, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, X } from "lucide-react";
+import { Award, BarChart3, CalendarCheck, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Gift, Images, MonitorSmartphone, MessageSquareText, LayoutDashboard, Menu, ReceiptText, Scissors, Settings, ShieldCheck, Store, UserRound, Users, Wifi, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { CurrentEmployee } from "@/lib/auth/types";
 import { getModulesForRole } from "@/lib/auth/permissions";
@@ -36,6 +36,7 @@ const icons = {
   Resenas: MessageSquareText,
   Rankings: BarChart3,
   "Landing / Galeria": Images,
+  "Hotspot visitas": Wifi,
   Dispositivos: MonitorSmartphone,
   Configuracion: Settings,
   Auditoria: ShieldCheck,
@@ -174,7 +175,7 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
 function groupModules(items: { label: string; href: string }[]) {
   const groups = [
     { title: "Gestion", labels: ["Clientes", "Empleados", "Servicios", "Productos", "Sedes", "Rewards"] },
-    { title: "Comercial", labels: ["Landing / Galeria", "Resenas", "Rankings", "WhatsApp/Plantillas", "Dispositivos"] },
+    { title: "Comercial", labels: ["Landing / Galeria", "Hotspot visitas", "Resenas", "Rankings", "WhatsApp/Plantillas", "Dispositivos"] },
     { title: "Finanzas/Produccion", labels: ["Produccion", "Bonos", "Liquidaciones", "Beneficios empleados"] },
     { title: "Sistema", labels: ["Configuracion", "Auditoria"] }
   ];

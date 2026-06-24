@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WiFi | La Bajadita Barber Studio</title>
+    <link rel="stylesheet" href="./hotspot.css" />
+  </head>
+  <body>
+    <main class="hotspot-shell">
+      <section class="hotspot-card" aria-labelledby="hotspot-title">
+        <p class="eyebrow">LA BAJADITA</p>
+        <h1 id="hotspot-title">BARBER STUDIO <span>IQUITOS</span></h1>
+        <p class="lead">Conéctate al WiFi de cortesía</p>
+
+        <form id="hotspot-data-form" class="hotspot-form">
+          <label>
+            <span>Sede</span>
+            <select id="branchCode" name="branchCode" required>
+              <option value="">Selecciona sede</option>
+              <option value="SED-001">LA BAJADITA IQUITOS</option>
+              <option value="SED-002">LA BAJADITA SAN JUAN</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Nombre completo</span>
+            <input id="name" name="name" type="text" minlength="2" autocomplete="name" placeholder="Tu nombre" required />
+          </label>
+
+          <label>
+            <span>WhatsApp</span>
+            <input id="phone" name="phone" type="tel" inputmode="numeric" maxlength="11" autocomplete="tel" placeholder="955131793" required />
+          </label>
+
+          <label class="check">
+            <input id="acceptedTerms" name="acceptedTerms" type="checkbox" required />
+            <span>Acepto términos y condiciones de uso del WiFi.</span>
+          </label>
+
+          <label class="check">
+            <input id="acceptedMarketing" name="acceptedMarketing" type="checkbox" required />
+            <span>Acepto recibir promociones, recordatorios y publicidad por WhatsApp o SMS.</span>
+          </label>
+
+          <button id="continueButton" type="submit">CONTINUAR</button>
+          <p id="hotspot-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+
+        <p class="fine-print">Tus datos se usan para registrar la visita al local y habilitar el acceso de cortesía.</p>
+      </section>
+    </main>
+
+    <!-- Cambiar username/password según el usuario hotspot configurado en MikroTik. -->
+    <form id="mikrotik-login-form" method="post" action="$(link-login-only)">
+      <input type="hidden" name="username" value="guest" />
+      <input type="hidden" name="password" value="guest" />
+      <input type="hidden" name="dst" value="$(link-orig)" />
+      <input type="hidden" name="popup" value="true" />
+    </form>
+
+    <script>
+      window.MIKROTIK_CONTEXT = {
+        mac: "$(mac)",
+        ip: "$(ip)",
+        username: "$(username)",
+        linkLoginOnly: "$(link-login-only)",
+        linkOrig: "$(link-orig)"
+      };
+    </script>
+    <script src="./hotspot.js"></script>
+  </body>
+</html>
