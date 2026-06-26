@@ -1,0 +1,240 @@
+:root {
+  --lbbs-bg: #050505;
+  --lbbs-panel: rgba(14, 14, 12, 0.92);
+  --lbbs-panel-border: rgba(244, 171, 73, 0.34);
+  --lbbs-gold: #f4ab49;
+  --lbbs-gold-strong: #f0b90b;
+  --lbbs-text: #fff7e8;
+  --lbbs-muted: #cbbca3;
+  --lbbs-whatsapp: #25d366;
+  --lbbs-danger: #ff6b6b;
+}
+
+body.lbbs-hotspot {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 75% 20%, rgba(244, 171, 73, 0.16), transparent 30%),
+    linear-gradient(135deg, #000 0%, #10100d 55%, #050505 100%);
+  color: var(--lbbs-text);
+}
+
+.hotspot-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 22px;
+}
+
+.hotspot-card {
+  width: min(100%, 440px);
+  border: 1px solid var(--lbbs-panel-border);
+  border-radius: 28px;
+  background: var(--lbbs-panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: 30px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--lbbs-gold);
+  font-size: 12px !important;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+}
+
+.hotspot-card h1 {
+  margin: 10px 0 0;
+  color: var(--lbbs-text);
+  font-size: clamp(32px, 9vw, 48px) !important;
+  line-height: 0.95;
+  text-align: left;
+}
+
+.hotspot-card h1 span {
+  display: block;
+  color: var(--lbbs-muted);
+  font-size: 13px !important;
+  letter-spacing: 0.22em;
+  margin-top: 12px;
+}
+
+.lead {
+  margin: 18px 0 20px;
+  color: var(--lbbs-muted);
+  font-size: 17px !important;
+}
+
+.mikrotik-message {
+  margin: 0 0 18px;
+  border: 1px solid rgba(244, 171, 73, 0.2);
+  border-radius: 16px;
+  background: rgba(244, 171, 73, 0.08);
+  color: var(--lbbs-muted);
+  font-size: 13px !important;
+  line-height: 1.4;
+  padding: 12px;
+  text-align: left;
+}
+
+.mikrotik-message.alert {
+  border-color: rgba(255, 107, 107, 0.45);
+  background: rgba(255, 107, 107, 0.08);
+  color: var(--lbbs-danger);
+}
+
+.hotspot-form {
+  display: grid;
+  gap: 16px;
+}
+
+.hotspot-form label span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--lbbs-muted);
+  font-size: 13px !important;
+}
+
+.hotspot-form input,
+.hotspot-form select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--lbbs-text);
+  font-size: 16px !important;
+  outline: none;
+  padding: 0 15px;
+}
+
+.hotspot-form select option {
+  background: #111;
+  color: #fff;
+}
+
+.hotspot-form input:focus,
+.hotspot-form select:focus {
+  border-color: var(--lbbs-gold);
+  box-shadow: 0 0 0 4px rgba(244, 171, 73, 0.14);
+}
+
+.hotspot-form .check {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 12px;
+  align-items: start;
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.hotspot-form .check input {
+  appearance: none !important;
+  -moz-appearance: none !important;
+  -webkit-appearance: none !important;
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+  width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  border: 2px solid rgba(244, 171, 73, 0.8) !important;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.35) !important;
+  cursor: pointer;
+  margin: 0 !important;
+  padding: 0 !important;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  vertical-align: top;
+}
+
+.hotspot-form .check input::after {
+  content: "";
+  width: 6px;
+  height: 11px;
+  border: solid #080808;
+  border-width: 0 3px 3px 0;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.8);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.hotspot-form .check input:checked {
+  background: var(--lbbs-gold) !important;
+  border-color: var(--lbbs-gold) !important;
+  box-shadow: 0 0 0 4px rgba(244, 171, 73, 0.18);
+}
+
+.hotspot-form .check input:checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+.hotspot-form .check input:focus {
+  outline: 2px solid rgba(244, 171, 73, 0.55);
+  outline-offset: 2px;
+}
+
+.hotspot-form .check span {
+  margin: 0;
+  color: var(--lbbs-text);
+  cursor: pointer;
+  font-size: 14px !important;
+  line-height: 1.35;
+}
+
+.hotspot-form button {
+  min-height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--lbbs-gold-strong), var(--lbbs-gold));
+  color: #090909;
+  cursor: pointer;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.hotspot-form button:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.hotspot-form button:disabled {
+  cursor: wait;
+  filter: grayscale(0.25) brightness(0.8);
+  transform: none;
+}
+
+.message {
+  min-height: 22px;
+  margin: 0;
+  color: var(--lbbs-muted);
+  font-size: 14px !important;
+  text-align: center;
+}
+
+.message.error {
+  color: var(--lbbs-danger);
+}
+
+.message.ok {
+  color: var(--lbbs-whatsapp);
+}
+
+.fine-print {
+  margin: 22px 0 0;
+  color: rgba(203, 188, 163, 0.72);
+  font-size: 12px !important;
+  line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+  .hotspot-shell {
+    padding: 14px;
+  }
+
+  .hotspot-card {
+    border-radius: 22px;
+    padding: 22px;
+  }
+}

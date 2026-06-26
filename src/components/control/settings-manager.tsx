@@ -66,7 +66,7 @@ export function SettingsManager() {
 
   return (
     <section className="grid gap-6">
-      <div><h1 className="text-3xl font-semibold">Configuracion</h1><p className="mt-1 text-sm text-[var(--text-muted)]">Datos base y plantillas WhatsApp.</p></div>
+      <h1 className="sr-only">Configuracion</h1>
       <div className="control-card rounded-2xl border border-[var(--control-border)] bg-[var(--control-surface)] p-5">
         <h2 className="text-lg font-semibold">Datos de barberia</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2">

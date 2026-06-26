@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, ClipboardList, Loader2, Package, Plus, PlusCircle, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, ClipboardList, History, Loader2, Package, Plus, PlusCircle, Save, Trash2 } from "lucide-react";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { BranchOption } from "@/lib/reservations/types";
-import { CsvToolsPanel } from "@/components/import-export/csv-tools-panel";
+import { formatPeruDateTime } from "@/lib/datetime/peru-time";
 
 type Product = Record<string, any>;
 
@@ -15,6 +15,7 @@ export function ProductsManager() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
   const [stockAction, setStockAction] = useState<{ product: Product; stock: Product; mode: "ingreso" | "ajuste" } | null>(null);
+  const [movementAction, setMovementAction] = useState<{ product: Product; stock: Product } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   async function load() {
@@ -95,11 +96,8 @@ export function ProductsManager() {
 
   return (
     <section className="grid gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Productos</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Bebidas y productos disponibles para vender en una atención.</p>
-        </div>
+      <div className="flex flex-col gap-3">
+        <h1 className="sr-only">Productos</h1>
         <div className="flex flex-wrap gap-2">
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar" value={query} onChange={(event) => setQuery(event.target.value)} />
           <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={load}>Buscar</button>
@@ -107,44 +105,7 @@ export function ProductsManager() {
         </div>
       </div>
 
-      {editing ? (
-        <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input label="Nombre" value={editing.name} onChange={(value) => setEditing({ ...editing, name: value })} />
-            <label className="text-sm text-[var(--text-muted)]">Categoria
-              <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={editing.category} onChange={(event) => {
-                const category = event.target.value;
-                setEditing({ ...editing, category, countsForSellerCredit: category === "barber_product", sellerCreditAmount: category === "barber_product" ? 2 : 0 });
-              }}>
-                <option value="snack">Snack / bebida</option>
-                <option value="barber_product">Producto de barberia</option>
-              </select>
-            </label>
-            <Input label="Descripcion" value={editing.description} onChange={(value) => setEditing({ ...editing, description: value })} />
-            <Input label="Precio venta" type="number" value={editing.salePrice} onChange={(value) => setEditing({ ...editing, salePrice: value })} />
-            <Input label="Costo opcional" type="number" value={editing.cost} onChange={(value) => setEditing({ ...editing, cost: value })} />
-            <Input label="Stock actual" type="number" value={editing.stockCurrent} onChange={(value) => setEditing({ ...editing, stockCurrent: value })} />
-            <Input label="Stock minimo" type="number" value={editing.stockMinimum} onChange={(value) => setEditing({ ...editing, stockMinimum: value })} />
-            <label className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-black/25 px-3 py-2 text-sm text-[var(--text-muted)]">
-              <input type="checkbox" checked={Boolean(editing.countsForSellerCredit)} onChange={(event) => setEditing({ ...editing, countsForSellerCredit: event.target.checked })} />
-              Cuenta credito vendedor
-            </label>
-            <Input label="Credito vendedor por unidad" type="number" value={editing.sellerCreditAmount} onChange={(value) => setEditing({ ...editing, sellerCreditAmount: value })} />
-            <label className="text-sm text-[var(--text-muted)]">Sede
-              <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={editing.branchId} onChange={(event) => setEditing({ ...editing, branchId: event.target.value })}>
-                <option value="">Global</option>
-                {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" disabled={busy === "save-product"} onClick={save}>{busy === "save-product" ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Guardar</button>
-            <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={() => setEditing(null)}>Cancelar</button>
-          </div>
-        </div>
-      ) : null}
-
-      {canMutate ? <CsvToolsPanel title="Productos XLSX" templateUrl="/api/control/products/template" importUrl="/api/control/products/import" format="xlsx" onImported={load} /> : null}
+      {movementAction ? <MovementsPanel action={movementAction} onClose={() => setMovementAction(null)} /> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {products.map((product) => {
@@ -173,6 +134,7 @@ export function ProductsManager() {
                   {canMutate ? <button className="rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setEditing(fromRow(product))}>Editar</button> : null}
                   <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setStockAction({ product, stock, mode: "ingreso" })}><PlusCircle size={14} /> Ingreso</button>
                   <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setStockAction({ product, stock, mode: "ajuste" })}><ClipboardList size={14} /> Ajuste</button>
+                  <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setMovementAction({ product, stock })}><History size={14} /> Movimientos</button>
                   {canMutate ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-red-200" onClick={() => deactivate(product.id)}><Trash2 size={14} /> Desactivar</button> : null}
                 </div>
               ) : null}
@@ -181,6 +143,7 @@ export function ProductsManager() {
           });
         })}
       </div>
+      {editing ? <ProductFormModal editing={editing} branches={branches} busy={busy} setEditing={setEditing} onSave={save} /> : null}
       {stockAction ? <StockModal action={stockAction} branches={branches} onClose={() => setStockAction(null)} onSaved={async () => { setStockAction(null); await load(); }} /> : null}
     </section>
   );
@@ -188,6 +151,189 @@ export function ProductsManager() {
 
 function Input({ label, value, onChange, type = "text" }: { label: string; value: any; onChange: (value: string) => void; type?: string }) {
   return <label className="text-sm text-[var(--text-muted)]">{label}<input className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function ProductFormModal({
+  editing,
+  branches,
+  busy,
+  setEditing,
+  onSave
+}: {
+  editing: Product;
+  branches: BranchOption[];
+  busy: string | null;
+  setEditing: (value: Product | null) => void;
+  onSave: () => Promise<unknown>;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 px-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-main)] p-5 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--gold-soft)]">{editing.id ? "Editar producto" : "Nuevo producto"}</p>
+            <h2 className="mt-1 text-2xl font-semibold">Productos</h2>
+          </div>
+          <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={() => setEditing(null)}>Cerrar</button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input label="Nombre" value={editing.name} onChange={(value) => setEditing({ ...editing, name: value })} />
+          <label className="text-sm text-[var(--text-muted)]">Categoria
+            <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={editing.category} onChange={(event) => {
+              const category = event.target.value;
+              setEditing({ ...editing, category, countsForSellerCredit: category === "barber_product", sellerCreditAmount: category === "barber_product" ? 2 : 0 });
+            }}>
+              <option value="snack">Snack / bebida</option>
+              <option value="barber_product">Producto de barberia</option>
+            </select>
+          </label>
+          <Input label="Descripcion" value={editing.description} onChange={(value) => setEditing({ ...editing, description: value })} />
+          <Input label="Precio venta" type="number" value={editing.salePrice} onChange={(value) => setEditing({ ...editing, salePrice: value })} />
+          <Input label="Costo opcional" type="number" value={editing.cost} onChange={(value) => setEditing({ ...editing, cost: value })} />
+          <Input label="Stock actual" type="number" value={editing.stockCurrent} onChange={(value) => setEditing({ ...editing, stockCurrent: value })} />
+          <Input label="Stock minimo" type="number" value={editing.stockMinimum} onChange={(value) => setEditing({ ...editing, stockMinimum: value })} />
+          <label className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-black/25 px-3 py-2 text-sm text-[var(--text-muted)]">
+            <input type="checkbox" checked={Boolean(editing.countsForSellerCredit)} onChange={(event) => setEditing({ ...editing, countsForSellerCredit: event.target.checked })} />
+            Cuenta credito vendedor
+          </label>
+          <Input label="Credito vendedor por unidad" type="number" value={editing.sellerCreditAmount} onChange={(value) => setEditing({ ...editing, sellerCreditAmount: value })} />
+          <label className="text-sm text-[var(--text-muted)]">Sede
+            <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={editing.branchId} onChange={(event) => setEditing({ ...editing, branchId: event.target.value })}>
+              <option value="">Global</option>
+              {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black disabled:opacity-60" disabled={busy === "save-product"} onClick={onSave}>{busy === "save-product" ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Guardar</button>
+          <button className="rounded-lg border border-[var(--border-soft)] px-4 py-2" onClick={() => setEditing(null)}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function movementLabel(movement: Product) {
+  const kind = movement.movement_kind ?? movement.movement_type;
+  const labels: Record<string, string> = {
+    ingreso: "Ingreso",
+    ajuste_positivo: "Ajuste positivo",
+    ajuste_negativo: "Ajuste negativo",
+    venta: "Salida por venta",
+    anulacion_venta: "Anulacion de venta",
+    adjustment: "Ajuste",
+    sale: "Salida por venta",
+    void: "Anulacion"
+  };
+  return labels[kind] ?? kind ?? "Movimiento";
+}
+
+function movementTone(movement: Product) {
+  const delta = Number(movement.quantity_delta ?? 0);
+  if (delta > 0) return "text-emerald-300";
+  if (delta < 0) return "text-red-200";
+  return "text-[var(--text-muted)]";
+}
+
+function MovementsPanel({ action, onClose }: { action: { product: Product; stock: Product }; onClose: () => void }) {
+  const [movements, setMovements] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const branch = Array.isArray(action.stock.branches) ? action.stock.branches[0] : action.stock.branches;
+
+  useEffect(() => {
+    let alive = true;
+    async function loadMovements() {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams({ limit: "25" });
+      if (action.stock.branch_id) params.set("branch_id", action.stock.branch_id);
+      const response = await fetch(`/api/control/products/${action.product.id}/movements?${params}`);
+      const data = await response.json();
+      if (!alive) return;
+      if (!response.ok) {
+        setError(data.error ?? "No se pudieron cargar los movimientos.");
+        setMovements([]);
+      } else {
+        setMovements(data.movements ?? []);
+      }
+      setLoading(false);
+    }
+    loadMovements();
+    return () => {
+      alive = false;
+    };
+  }, [action.product.id, action.stock.branch_id]);
+
+  return (
+    <section className="rounded-2xl border border-[var(--border-soft)] bg-black/25 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--gold-soft)]">Historial de inventario</p>
+            <h2 className="mt-1 text-2xl font-semibold">Movimientos de producto</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">{action.product.name} - {branch?.name ?? "Sede seleccionada"}</p>
+          </div>
+          <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={onClose}>Cerrar</button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-[var(--border-soft)] bg-black/20 p-3 text-sm">
+          <div>
+            <p className="text-[var(--text-muted)]">Stock actual</p>
+            <strong>{action.stock.stock_current ?? 0}</strong>
+          </div>
+          <div>
+            <p className="text-[var(--text-muted)]">Stock minimo</p>
+            <strong>{action.stock.stock_minimum ?? 0}</strong>
+          </div>
+          <div>
+            <p className="text-[var(--text-muted)]">Ultimos</p>
+            <strong>{movements.length}</strong>
+          </div>
+        </div>
+
+        <div className="mt-4 max-h-[60vh] overflow-y-auto pr-1">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border-soft)] p-6 text-[var(--text-muted)]">
+              <Loader2 className="animate-spin" size={18} /> Cargando movimientos...
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border border-red-300/40 bg-red-950/20 p-4 text-red-100">{error}</div>
+          ) : movements.length === 0 ? (
+            <div className="rounded-xl border border-[var(--border-soft)] p-4 text-[var(--text-muted)]">Aun no hay movimientos registrados para este producto en esta sede.</div>
+          ) : (
+            <div className="grid gap-2">
+              {movements.map((movement) => {
+                const delta = Number(movement.quantity_delta ?? 0);
+                const movementBranch = Array.isArray(movement.branches) ? movement.branches[0] : movement.branches;
+                return (
+                  <article key={movement.id} className="rounded-xl border border-[var(--border-soft)] bg-black/20 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="inline-flex items-center gap-2 font-semibold">
+                          {delta < 0 ? <ArrowDownCircle className="text-red-200" size={16} /> : <ArrowUpCircle className={delta > 0 ? "text-emerald-300" : "text-[var(--text-muted)]"} size={16} />}
+                          {movementLabel(movement)}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">{formatPeruDateTime(movement.created_at)} - {movementBranch?.name ?? branch?.name ?? "Sin sede"}</p>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <p className={`text-lg font-semibold ${movementTone(movement)}`}>{delta > 0 ? "+" : ""}{delta}</p>
+                        <p className="text-xs text-[var(--text-muted)]">{movement.previous_stock} {"->"} {movement.new_stock}</p>
+                      </div>
+                    </div>
+                    {(movement.reason || movement.reference) ? (
+                      <div className="mt-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs text-[var(--text-muted)]">
+                        {movement.reason ? <p>Motivo: {movement.reason}</p> : null}
+                        {movement.reference ? <p>Referencia: {movement.reference}</p> : null}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+    </section>
+  );
 }
 
 function StockModal({

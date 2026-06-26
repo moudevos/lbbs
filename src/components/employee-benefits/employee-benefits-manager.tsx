@@ -6,6 +6,8 @@ import { benefitLabels } from "@/lib/employee-benefits/types";
 import { showError, showSuccess, swalThemed } from "@/lib/ui/swal";
 
 const currentMonth = new Date().toISOString().slice(0, 7);
+const today = new Date().toISOString().slice(0, 10);
+const monthStart = `${currentMonth}-01`;
 const blank = {
   kind: "free-haircut", employeeId: "", branchId: "", productId: "",
   quantity: "1", amount: "", credit: false, paymentMethod: "efectivo", reason: "", notes: ""
@@ -13,6 +15,8 @@ const blank = {
 
 export function EmployeeBenefitsManager() {
   const [month, setMonth] = useState(currentMonth);
+  const [from, setFrom] = useState(monthStart);
+  const [to, setTo] = useState(today);
   const [movements, setMovements] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({});
   const [options, setOptions] = useState<{ branches: any[]; employees: any[]; products: any[] }>({ branches: [], employees: [], products: [] });
@@ -23,9 +27,10 @@ export function EmployeeBenefitsManager() {
 
   async function load() {
     setLoading(true);
+    const params = new URLSearchParams({ from, to });
     const [movementsResponse, summaryResponse, optionsResponse, employeesResponse, productsResponse] = await Promise.all([
-      fetch(`/api/control/employee-benefits?month=${month}`),
-      fetch(`/api/control/employee-benefits/summary?month=${month}`),
+      fetch(`/api/control/employee-benefits?${params}`),
+      fetch(`/api/control/employee-benefits/summary?${params}`),
       fetch("/api/public/reservation-options"),
       fetch("/api/control/employees"),
       fetch("/api/control/products")
@@ -44,9 +49,9 @@ export function EmployeeBenefitsManager() {
     setLoading(false);
   }
 
-  // Reloading is intentionally keyed only by the selected accounting month.
+  // Reloading is intentionally keyed by the selected accounting period.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { void load(); }, [month]);
+  useEffect(() => { void load(); }, [from, to]);
 
   async function save() {
     if (!form.employeeId || !form.branchId) return showError("Datos incompletos", "Selecciona empleado y sede.");
@@ -86,16 +91,18 @@ export function EmployeeBenefitsManager() {
     ["Productos credito", summary.productCredit, true],
     ["Adelantos", summary.advances, true],
     ["Descuentos", summary.deductions, true],
-    ["Cortes gratis", summary.freeHaircuts, false],
+    ["Cortes 50% usados", summary.freeHaircuts, false],
     ["Pagado al momento", summary.cashPaid, true],
     ["Pendiente descontar", summary.pendingDeduction, true]
   ] as const;
 
   return <section className="grid gap-5">
-    <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <div><h1 className="text-3xl font-semibold">Beneficios de empleados</h1><p className="mt-1 text-sm text-[var(--control-muted)]">Consumos, cortes, adelantos y descuentos internos.</p></div>
-      <div className="flex flex-wrap gap-2">
-        <input className="control-input w-auto" type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+    <header className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+      <h1 className="sr-only">Beneficios de empleados</h1>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[160px_160px_auto_auto_auto]">
+        <label className="grid gap-1 text-xs text-[var(--control-muted)]">Inicio<input className="control-input w-full" type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
+        <label className="grid gap-1 text-xs text-[var(--control-muted)]">Fin<input className="control-input w-full" type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
+        <input className="control-input w-full" type="month" value={month} onChange={(event) => { const next = event.target.value; setMonth(next); setFrom(`${next}-01`); setTo(today); }} title="Atajo por mes" />
         <a className="rounded-lg border border-[var(--control-border)] px-4 py-2 text-sm" href="/api/control/reports/employee-benefits/export">Exportar XLSX</a>
         <button className="control-primary-button inline-flex items-center gap-2 rounded-lg px-4 py-2" onClick={() => setOpen(true)}><Plus size={16} /> Registrar</button>
       </div>
@@ -132,11 +139,11 @@ function BenefitModal({ form, setForm, options, saving, onClose, onSave }: any) 
   return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/70 p-4"><div className="control-surface max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--control-border)] p-5">
     <div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">Registrar beneficio</h2><p className="text-sm text-[var(--control-muted)]">Complete los datos del movimiento.</p></div><button onClick={onClose}><X /></button></div>
     <div className="mt-5 grid gap-3 md:grid-cols-2">
-      <Field label="Tipo"><select className="control-input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="free-haircut">Corte gratis</option><option value="cafeteria">Cafeteria</option><option value="barber-product">Producto barberia</option><option value="salary-advance">Adelanto</option><option value="manual-deduction">Descuento manual</option><option value="manual-adjustment">Ajuste manual</option></select></Field>
+      <Field label="Tipo"><select className="control-input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="free-haircut">Corte empleado 50%</option><option value="cafeteria">Cafeteria</option><option value="barber-product">Producto barberia</option><option value="salary-advance">Adelanto</option><option value="manual-deduction">Descuento manual</option><option value="manual-adjustment">Ajuste manual</option></select></Field>
       <Field label="Empleado"><select className="control-input" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}><option value="">Seleccionar</option>{options.employees.map((item: any) => <option value={item.id} key={item.id}>{item.first_name} {item.last_name}</option>)}</select></Field>
       <Field label="Sede"><select className="control-input" value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}><option value="">Seleccionar</option>{options.branches.map((item: any) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></Field>
       {needsProduct ? <><Field label="Producto"><select className="control-input" value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })}><option value="">Seleccionar</option>{options.products.map((item: any) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></Field><Field label="Cantidad"><input className="control-input" type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></Field><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.credit} onChange={(e) => setForm({ ...form, credit: e.target.checked })} /> Dejar a credito</label>{!form.credit ? <Field label="Metodo de pago"><select className="control-input" value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}><option>efectivo</option><option>yape</option><option>plin</option><option>tarjeta</option></select></Field> : null}</> : null}
-      {needsAmount ? <Field label="Monto"><input className="control-input" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field> : null}
+      {(needsAmount || form.kind === "free-haircut") ? <Field label={form.kind === "free-haircut" ? "Precio normal del corte" : "Monto"}><input className="control-input" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field> : null}
       <div className="md:col-span-2"><Field label={needsReason ? "Motivo obligatorio" : "Motivo / observacion"}><textarea className="control-input min-h-24" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></Field></div>
     </div>
     <div className="mt-5 flex justify-end gap-2"><button className="rounded-lg border border-[var(--control-border)] px-4 py-2" onClick={onClose}>Cancelar</button><button disabled={saving} className="control-primary-button inline-flex items-center gap-2 rounded-lg px-4 py-2" onClick={onSave}>{saving ? <Loader2 className="animate-spin" size={16} /> : null} Guardar</button></div>

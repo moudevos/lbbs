@@ -32,6 +32,15 @@
     }
   }
 
+  function submitMikrotik() {
+    var mikrotikForm = document.getElementById("mikrotik-login-form");
+    if (typeof window.submitMikrotikLogin === "function") {
+      window.submitMikrotikLogin();
+      return;
+    }
+    mikrotikForm.submit();
+  }
+
   async function submitData(event) {
     event.preventDefault();
     setMessage("", "");
@@ -70,11 +79,9 @@
         throw new Error(data.error || "No se pudo registrar la visita.");
       }
       setMessage("Visita registrada. Conectando...", "ok");
-      setTimeout(function () {
-        document.getElementById("mikrotik-login-form").submit();
-      }, 600);
+      setTimeout(submitMikrotik, 600);
     } catch (error) {
-      setMessage(error.message || "No se pudo conectar. Intenta nuevamente.", "error");
+      setMessage((error && error.message) || "No se pudo validar la visita. Solicita apoyo en recepción.", "error");
       button.disabled = false;
       button.textContent = "CONTINUAR";
     }

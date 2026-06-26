@@ -1,5 +1,5 @@
-import { PageLoader } from "@/components/ui/loading-state";
+import { ModuleRouteSkeleton } from "@/components/navigation/module-route-skeleton";
 
-export default function Loading() {
-  return <PageLoader />;
+export default function ControlLoading() {
+  return <ModuleRouteSkeleton pathname={null} />;
 }

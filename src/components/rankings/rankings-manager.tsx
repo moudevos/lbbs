@@ -31,11 +31,8 @@ export function RankingsManager() {
 
   return (
     <section className="grid gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Rankings</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Ranking comercial sin mezclar caja con produccion.</p>
-        </div>
+      <div className="flex flex-col gap-3">
+        <h1 className="sr-only">Rankings</h1>
         <div className="flex flex-wrap gap-2">
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="date" value={to} onChange={(event) => setTo(event.target.value)} />

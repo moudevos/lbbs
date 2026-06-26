@@ -79,8 +79,11 @@ export async function createBenefitMovement(input: {
     if (error || !data?.is_active) return { error: error?.message ?? "Producto no disponible", status: 400 };
     product = data;
     if (type.startsWith("barber_product")) {
-      unitPrice = Number(product.cost_price ?? product.cost ?? 0);
-      if (unitPrice <= 0 && !(actor.role === "admin" && String(body.reason ?? "").trim())) {
+      const baseCost = Number(product.cost_price ?? product.cost ?? 0);
+      const { data: setting } = await admin.from("app_settings").select("value").eq("key", "employee_benefits_barber_product_markup_amount").maybeSingle();
+      const markup = Number(setting?.value ?? 2);
+      unitPrice = baseCost > 0 ? baseCost + markup : Number(body.amount ?? 0);
+      if (baseCost <= 0 && !(actor.role === "admin" && unitPrice > 0 && String(body.reason ?? "").trim())) {
         return { error: "El producto no tiene costo configurado. Admin puede autorizarlo indicando un motivo.", status: 400 };
       }
     } else {
@@ -97,7 +100,13 @@ export async function createBenefitMovement(input: {
     stockMovementId = stock.movementId ?? null;
   }
 
-  const total = type === "free_haircut" ? 0 : Math.round(unitPrice * quantity * 100) / 100;
+  let total = Math.round(unitPrice * quantity * 100) / 100;
+  if (type === "free_haircut") {
+    const rawAmount = Number(body.amount ?? 0);
+    total = rawAmount > 0 ? Math.round(rawAmount * 0.5 * 100) / 100 : 0;
+    discountAmount = rawAmount > 0 ? Math.round(rawAmount * 0.5 * 100) / 100 : 0;
+    unitPrice = total;
+  }
   const payload = {
     employee_id: employeeId, branch_id: branchId, created_by: actor.employeeId,
     movement_type: type, benefit_month: limaMonthStart(), product_id: product?.id ?? null,
@@ -105,7 +114,7 @@ export async function createBenefitMovement(input: {
     payment_mode: type.endsWith("_cash") ? "cash" : type.endsWith("_credit") ? "credit" : null,
     payment_method: type.endsWith("_cash") ? body.paymentMethod ?? "efectivo" : null,
     stock_movement_id: stockMovementId, notes: body.notes ?? null, reason: body.reason ?? null,
-    metadata: { product_name: product?.name ?? null }
+    metadata: { product_name: product?.name ?? null, legacy_type: type === "free_haircut" ? "employee_haircut_50" : null }
   };
   const { data: movement, error } = await admin.from("employee_benefit_movements").insert(payload).select("id").single();
   if (error) {
@@ -113,7 +122,7 @@ export async function createBenefitMovement(input: {
       admin, productId: product.id, branchId, quantity, direction: "in", actor,
       reason: "Rollback beneficio no registrado"
     });
-    return { error: error.code === "23505" ? "El empleado ya uso su corte gratis este mes" : error.message, status: error.code === "23505" ? 409 : 500 };
+    return { error: error.code === "23505" ? "El empleado ya uso su corte 50% este mes" : error.message, status: error.code === "23505" ? 409 : 500 };
   }
   await writeAuditLog(admin, {
     actorUserId: actor.userId, actorRole: actor.role, actorBranchId: actor.branchId,

@@ -4,6 +4,19 @@ import { writeAuditLog } from "@/lib/audit";
 
 const allowed = ["approved", "paid", "cancelled"];
 
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+  const context = await requireAdmin();
+  if (!context.ok) return context.error;
+  const { data, error } = await context.admin
+    .from("barber_liquidations")
+    .select("*,employees(first_name,last_name),branches(name),barber_liquidation_items(*)")
+    .eq("id", params.id)
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Liquidacion no encontrada" }, { status: 404 });
+  return NextResponse.json({ liquidation: data });
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const context = await requireAdmin();
   if (!context.ok) return context.error;

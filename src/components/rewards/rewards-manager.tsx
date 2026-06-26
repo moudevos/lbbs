@@ -52,7 +52,7 @@ export function RewardsManager() {
   return (
     <section className="grid min-w-0 gap-4">
       <div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(0,760px)] xl:items-end">
-        <div><h1 className="text-3xl font-semibold">Rewards</h1><p className="mt-1 text-sm text-[var(--control-muted)]">Seguimiento de visitas, progreso y beneficios disponibles.</p></div>
+        <h1 className="sr-only">Rewards</h1>
         <div className="grid gap-2 sm:grid-cols-[145px_145px_minmax(180px,1fr)_auto]">
           <input className="control-input" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
           <input className="control-input" type="date" value={to} onChange={(event) => setTo(event.target.value)} />

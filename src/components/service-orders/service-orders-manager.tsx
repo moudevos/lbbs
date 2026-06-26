@@ -55,7 +55,7 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
   return (
     <section className="grid min-w-0 gap-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div><h1 className="text-3xl font-semibold">{mine ? "Mis servicios" : "Atenciones"}</h1><p className="mt-1 text-sm text-[var(--text-muted)]">Por defecto se muestran las atenciones activas de hoy.</p></div>
+        <h1 className="sr-only">{mine ? "Mis servicios" : "Atenciones"}</h1>
         <div className="grid min-w-0 gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap xl:justify-end">
           <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={() => { setDate(today); setDateTo(today); }}>Hoy</button>
           <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" onClick={() => { const value = toPeruDate(new Date(Date.now() - 86400000)); setDate(value); setDateTo(value); }}>Ayer</button>

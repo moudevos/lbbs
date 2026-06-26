@@ -61,7 +61,7 @@ export function LocalDevicesManager() {
 
   return (
     <section className="grid min-w-0 gap-5">
-      <div><h1 className="text-3xl font-semibold">Dispositivos locales</h1><p className="mt-1 text-sm text-[var(--control-muted)]">Conecta tablets o kioskos por sede con token limitado.</p></div>
+      <h1 className="sr-only">Dispositivos locales</h1>
       <ControlCard className="p-5">
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <ControlInput placeholder="Nombre del dispositivo" value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />

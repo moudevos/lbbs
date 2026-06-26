@@ -1,41 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { writeAuditLog } from "@/lib/audit";
-import { calculateLiquidationSnapshot } from "@/lib/production/calculate-liquidation";
-
-function sum(rows: any[], key: string) {
-  return rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
-}
-
-async function buildLiquidation(admin: any, from: string, to: string, barberId: string, branchId?: string | null) {
-  let query = admin
-    .from("barber_production_entries")
-    .select("*")
-    .or(`barber_id.eq.${barberId},sold_by_employee_id.eq.${barberId}`)
-    .is("voided_at", null)
-    .gte("counted_at", `${from}T00:00:00.000Z`)
-    .lte("counted_at", `${to}T23:59:59.999Z`)
-    .order("counted_at", { ascending: true });
-  if (branchId && branchId !== "all") query = query.eq("branch_id", branchId);
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  const rows = data ?? [];
-  const snapshot = calculateLiquidationSnapshot(rows);
-  return {
-    rows,
-    summary: {
-      grossProduction: snapshot.grossProduction,
-      productionDeductions: snapshot.productionDeductions,
-      calculatedProduction: snapshot.calculatedProduction,
-      assignedPercentage: snapshot.assignedPercentage,
-      serviceEarnings: snapshot.serviceEarnings,
-      productCredits: snapshot.productCredits,
-      bonuses: snapshot.bonuses,
-      totalLiquidation: snapshot.totalLiquidation
-    },
-    snapshot
-  };
-}
+import { buildLiquidationPreview } from "@/lib/liquidations/server";
 
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
@@ -50,7 +16,7 @@ export async function GET(request: NextRequest) {
   if (context.employee.role === "barbero" && barberId !== context.employee.employeeId) return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
 
   try {
-    const result = await buildLiquidation(context.admin, from, to, barberId, branchId);
+    const result = await buildLiquidationPreview(context.admin, { from, to, barberId, branchId });
     const { data: drafts } = await context.admin
       .from("barber_liquidations")
       .select("*")
@@ -72,10 +38,12 @@ export async function POST(request: NextRequest) {
   if (!body.from || !body.to || !body.barberId) return NextResponse.json({ error: "Periodo y barbero requeridos" }, { status: 400 });
 
   try {
-    const result = await buildLiquidation(context.admin, body.from, body.to, body.barberId, body.branchId);
+    const result = await buildLiquidationPreview(context.admin, { from: body.from, to: body.to, barberId: body.barberId, branchId: body.branchId });
     const payload = {
       period_from: body.from,
       period_to: body.to,
+      period_start: result.periodStart,
+      period_end: result.periodEnd,
       branch_id: body.branchId && body.branchId !== "all" ? body.branchId : null,
       barber_id: body.barberId,
       gross_production: result.summary.grossProduction,
@@ -86,6 +54,15 @@ export async function POST(request: NextRequest) {
       product_credits: result.summary.productCredits,
       bonuses: result.summary.bonuses,
       total_liquidation: result.summary.totalLiquidation,
+      service_commission: result.summary.serviceEarnings,
+      product_incentives: result.summary.productCredits,
+      cafeteria_debt_total: result.summary.cafeteriaDebt,
+      cafeteria_debt_applied: result.summary.cafeteriaDebt,
+      product_debt_total: result.summary.productDebt,
+      product_debt_applied: result.summary.productDebt,
+      manual_deduction_total: result.summary.manualDebt,
+      manual_deduction_applied: result.summary.manualDebt,
+      net_to_pay: result.summary.netToPay,
       status: "draft",
       created_by: context.employee.userId,
       cutoff_at: result.snapshot.cutoffAt,

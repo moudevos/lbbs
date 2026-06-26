@@ -7,7 +7,8 @@ export const employeeBenefitTypes = [
 export type EmployeeBenefitType = typeof employeeBenefitTypes[number];
 
 export const benefitLabels: Record<string, string> = {
-  free_haircut: "Corte gratis",
+  free_haircut: "Corte empleado 50%",
+  employee_haircut_50: "Corte empleado 50%",
   cafeteria_cash: "Cafeteria pagada",
   cafeteria_credit: "Cafeteria a credito",
   barber_product_cash: "Producto pagado",

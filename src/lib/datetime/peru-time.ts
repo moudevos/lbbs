@@ -11,10 +11,32 @@ export function combinePeruDateAndTime(date: string, time: string) {
 
 export function formatPeruDateTime(value: string | Date, options?: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat("es-PE", {
-    dateStyle: "medium",
-    timeStyle: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
     timeZone: PERU_TIME_ZONE,
     ...options
+  }).format(typeof value === "string" ? new Date(value) : value);
+}
+
+export function formatPeruDate(value: string | Date) {
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: PERU_TIME_ZONE
+  }).format(typeof value === "string" ? new Date(value) : value);
+}
+
+export function formatPeruTime(value: string | Date) {
+  return new Intl.DateTimeFormat("es-PE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: PERU_TIME_ZONE
   }).format(typeof value === "string" ? new Date(value) : value);
 }
 

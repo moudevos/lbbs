@@ -51,6 +51,7 @@ export function CsvToolsPanel({ title, templateUrl, importUrl, exportUrl, format
   const [summary, setSummary] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
+  const [pendingRows, setPendingRows] = useState<Record<string, unknown>[]>([]);
 
   async function importFile(file: File | null) {
     if (!file || !importUrl) return;
@@ -73,17 +74,18 @@ export function CsvToolsPanel({ title, templateUrl, importUrl, exportUrl, format
       return;
     }
 
-    setWorking(true);
+    setPreviewing(true);
     try {
       const rows = parseCsv(await file.text());
       const response = await fetch(importUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
       const data = await response.json();
-      if (!response.ok) return showError("No se pudo importar", data.error ?? "Revisa el archivo.");
-      setSummary(`Leidas: ${data.read ?? rows.length}. Creadas: ${data.created ?? 0}. Existentes: ${data.existing ?? 0}. Omitidas: ${data.skipped ?? 0}. Errores: ${(data.errors ?? []).length}.`);
-      await showSuccess("Importacion completada");
-      onImported?.();
+      if (!response.ok) return showError("No se pudo previsualizar", data.error ?? "Revisa el archivo.");
+      setSelectedFile(file);
+      setPendingRows(rows);
+      setPreviewRows(data.preview ?? rows);
+      setSummary(`Previsualizacion lista. Filas leidas: ${data.read ?? rows.length}. Revisa estados antes de confirmar.`);
     } finally {
-      setWorking(false);
+      setPreviewing(false);
     }
   }
 
@@ -91,6 +93,20 @@ export function CsvToolsPanel({ title, templateUrl, importUrl, exportUrl, format
     if (!selectedFile || !importUrl) return;
     setWorking(true);
     try {
+      if (format === "csv") {
+        const confirmUrl = importUrl.replace(/import-preview$/, "import-confirm");
+        const response = await fetch(confirmUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: pendingRows }) });
+        const data = await response.json();
+        if (!response.ok) return showError("No se pudo importar", data.error ?? "Revisa el archivo.");
+        const errors = data.errors ?? [];
+        setSummary(`Leidas: ${data.read ?? pendingRows.length}. Creadas: ${data.created ?? 0}. Actualizadas: ${data.updated ?? 0}. Existentes: ${data.existing ?? 0}. Omitidas: ${data.skipped ?? 0}. Errores: ${errors.length}.`);
+        setSelectedFile(null);
+        setPendingRows([]);
+        setPreviewRows([]);
+        await showSuccess("Importacion completada");
+        onImported?.();
+        return;
+      }
       const body = new FormData();
       body.set("file", selectedFile);
       const response = await fetch(importUrl, { method: "POST", body });
@@ -99,6 +115,7 @@ export function CsvToolsPanel({ title, templateUrl, importUrl, exportUrl, format
       const errors = data.errors ?? [];
       setSummary(`Leidas: ${data.read ?? previewRows.length}. Creadas: ${data.created ?? 0}. Actualizadas: ${data.updated ?? 0}. Existentes: ${data.existing ?? 0}. Omitidas: ${data.skipped ?? 0}. Errores: ${errors.length}.`);
       setSelectedFile(null);
+      setPendingRows([]);
       setPreviewRows([]);
       await showSuccess("Importacion completada");
       onImported?.();

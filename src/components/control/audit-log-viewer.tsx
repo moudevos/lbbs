@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { ShieldCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/loading-state";
 
@@ -53,14 +52,8 @@ export function AuditLogViewer() {
 
   return (
     <section className="grid gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="text-[var(--gold-soft)]" size={24} />
-            <h1 className="text-3xl font-semibold">Auditoria</h1>
-          </div>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Eventos operativos recientes.</p>
-        </div>
+      <div className="flex flex-col gap-3">
+        <h1 className="sr-only">Auditoria</h1>
         <div className="flex flex-wrap gap-2">
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Accion" value={eventType} onChange={(e) => setEventType(e.target.value)} />

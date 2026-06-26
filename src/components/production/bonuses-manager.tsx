@@ -117,10 +117,7 @@ export function BonusesManager() {
 
   return (
     <section className="grid gap-5">
-      <div>
-        <h1 className="text-3xl font-semibold">Bonos y produccion</h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">Configura porcentajes, metas y bonos por servicios.</p>
-      </div>
+      <h1 className="sr-only">Bonos y produccion</h1>
 
       <section className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
         <h2 className="font-semibold">Porcentaje por barbero</h2>

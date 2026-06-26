@@ -31,6 +31,7 @@ const icons = {
   Productos: ReceiptText,
   Produccion: BarChart3,
   Liquidaciones: ReceiptText,
+  "Deudas empleados": ReceiptText,
   "Beneficios empleados": Gift,
   Bonos: Award,
   Resenas: MessageSquareText,
@@ -60,6 +61,10 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
   const modules = getModulesForRole(employee.role);
   const dashboard = employee.role !== "barbero" ? [{ label: "Dashboard", href: "/app/control" }] : [];
   const allModules = [...dashboard, ...modules];
+  const activeModule = allModules
+    .slice()
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((item) => pathname === item.href || (item.href !== "/app/control" && pathname.startsWith(item.href))) ?? dashboard[0] ?? allModules[0];
   const primaryModules = allModules.filter((item) => ["Dashboard", "Reservas", "Agenda", "Mi agenda", "Atenciones", "Caja", "Mis servicios/cortes"].includes(item.label));
   const groupedModules = groupModules(allModules);
   const activeGroup = groupedModules.find((group) => group.items.some((item) => pathname === item.href || (item.href !== "/app/control" && pathname.startsWith(item.href))))?.title;
@@ -138,7 +143,7 @@ function ControlShellContent({ employee, children }: { employee: CurrentEmployee
                 <button className="rounded-lg border border-[var(--border-soft)] p-2 lg:hidden" onClick={() => setMobileOpen(true)}><Menu size={18} /></button>
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-[var(--gold-soft)]">Panel interno</p>
-                  <h1 className="text-lg font-semibold">La Bajadita Barber Shop</h1>
+                  <h1 className="text-lg font-semibold">{activeModule?.label ?? "Dashboard"}</h1>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{employee.fullName} - {employee.role}</p>
                 </div>
               </div>
@@ -176,7 +181,7 @@ function groupModules(items: { label: string; href: string }[]) {
   const groups = [
     { title: "Gestion", labels: ["Clientes", "Empleados", "Servicios", "Productos", "Sedes", "Rewards"] },
     { title: "Comercial", labels: ["Landing / Galeria", "Hotspot visitas", "Resenas", "Rankings", "WhatsApp/Plantillas", "Dispositivos"] },
-    { title: "Finanzas/Produccion", labels: ["Produccion", "Bonos", "Liquidaciones", "Beneficios empleados"] },
+    { title: "Finanzas/Produccion", labels: ["Produccion", "Bonos", "Liquidaciones", "Deudas empleados", "Beneficios empleados"] },
     { title: "Sistema", labels: ["Configuracion", "Auditoria"] }
   ];
   return groups

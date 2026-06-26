@@ -139,8 +139,8 @@ export function CrudManager({ module }: { module: Module }) {
 
   return (
     <section className="grid gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div><h1 className="text-3xl font-semibold">{labels[module]}</h1><p className="mt-1 text-sm text-[var(--text-muted)]">Administracion operativa.</p></div>
+      <div className="flex flex-col gap-3">
+        <h1 className="sr-only">{labels[module]}</h1>
         <div className="flex flex-wrap gap-2">
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={loading} onClick={load}>{loading ? <><ButtonSpinner /> Buscando</> : "Buscar"}</button>
@@ -152,7 +152,7 @@ export function CrudManager({ module }: { module: Module }) {
         </div>
       </div>
       {temporaryPassword ? <div className="rounded-lg border border-[var(--border-soft)] bg-[rgba(212,175,55,0.08)] p-4 text-sm">Password temporal visible una sola vez: <strong>{temporaryPassword}</strong><br />El empleado debe validar su correo y luego cambiar este password al ingresar.</div> : null}
-      {module === "customers" ? <CsvToolsPanel title="Importar clientes Google Contacts CSV" importUrl="/api/control/customers/import" exportUrl="/api/control/reports/customers/export" exportFormat="xlsx" onImported={load} /> : null}
+      {module === "customers" ? <CsvToolsPanel title="Importar clientes Google Contacts CSV" importUrl="/api/control/customers/import-preview" exportUrl="/api/control/reports/customers/export" exportFormat="xlsx" onImported={load} /> : null}
       {editing ? <EditorModal module={module} row={editing} branches={branches} saving={saving} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} /> : null}
       {loading && rows.length === 0 ? <TableSkeleton /> : null}
       {!loading && rows.length === 0 ? <EmptyState /> : null}

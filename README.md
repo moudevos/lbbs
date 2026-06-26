@@ -1,5 +1,35 @@
 # La Bajadita Barber Shop
 
+## Arquitectura actual
+
+El landing publico se separo en un proyecto Astro hermano:
+
+```txt
+../lbbs-landing-astro
+```
+
+Este proyecto Next.js conserva reservas, dashboard, APIs, Supabase, dispositivos y hotspot. El landing Astro consume datos mediante APIs publicas de este proyecto:
+
+```txt
+/api/public/landing/services
+/api/public/landing/team
+/api/public/landing/gallery
+/api/public/landing/branches
+/api/public/landing/reviews
+/api/public/landing/settings
+```
+
+Dominios recomendados:
+
+```txt
+labajaditabarberstudio.com              -> Astro landing
+control.labajaditabarberstudio.com      -> Next dashboard
+reservas.labajaditabarberstudio.com     -> Next reservas
+dispositivos.labajaditabarberstudio.com -> Next dispositivos
+```
+
+No asignar el dominio raiz a Next y Astro al mismo tiempo. Ver `docs/ARCHITECTURE.md`, `docs/LANDING_ASTRO_MIGRATION.md`, `docs/API_PUBLIC_LANDING.md` y `docs/DEPLOYMENT_DOMAINS.md`.
+
 PWA profesional para reservas, agenda y control interno de La Bajadita Barber Shop.
 
 ## Stack

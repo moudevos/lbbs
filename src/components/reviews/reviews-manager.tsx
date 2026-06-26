@@ -66,11 +66,8 @@ export function ReviewsManager() {
 
   return (
     <section className="grid gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Reseñas</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Moderacion de comentarios publicos antes de mostrarlos en landing.</p>
-        </div>
+      <div className="flex flex-col gap-3">
+        <h1 className="sr-only">Reseñas</h1>
         <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="pending">Pendientes</option>
           <option value="approved">Aprobadas</option>

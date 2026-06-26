@@ -5,8 +5,13 @@ export async function GET(request: NextRequest) {
   const context = await requireAdmin();
   if (!context.ok) return context.error;
   const month = request.nextUrl.searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
+  const from = request.nextUrl.searchParams.get("from");
+  const to = request.nextUrl.searchParams.get("to");
   let query = context.admin.from("employee_benefit_movements")
-    .select("movement_type,total_amount,status").eq("benefit_month", `${month}-01`).neq("status", "reversed");
+    .select("movement_type,total_amount,status").neq("status", "reversed");
+  if (from) query = query.gte("created_at", `${from}T00:00:00.000-05:00`);
+  if (to) query = query.lte("created_at", `${to}T23:59:59.999-05:00`);
+  if (!from && !to) query = query.eq("benefit_month", `${month}-01`);
   const branchId = request.nextUrl.searchParams.get("branch_id");
   if (branchId && branchId !== "all") query = query.eq("branch_id", branchId);
   const { data, error } = await query;

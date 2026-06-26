@@ -86,11 +86,8 @@ export function CashDashboard() {
 
   return (
     <section className="grid min-w-0 gap-4">
-      <div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_minmax(0,980px)] xl:items-end">
-        <div>
-          <h1 className="text-3xl font-semibold">Caja base</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">Ventas pagadas, metodos, ranking y tickets del dia.</p>
-        </div>
+      <div className="grid gap-3">
+        <h1 className="sr-only">Caja base</h1>
         <div className="grid min-w-0 gap-2 md:grid-cols-[150px_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_auto]">
           <input className="control-input min-w-0" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
           <select className="control-input min-w-0" value={branchId} onChange={(event) => setBranchId(event.target.value)}>
