@@ -28,6 +28,7 @@ const icons = {
   Servicios: Scissors,
   Atenciones: ReceiptText,
   Caja: ReceiptText,
+  Analisis: BarChart3,
   Productos: ReceiptText,
   Produccion: BarChart3,
   Liquidaciones: ReceiptText,
@@ -181,7 +182,7 @@ function groupModules(items: { label: string; href: string }[]) {
   const groups = [
     { title: "Gestion", labels: ["Clientes", "Empleados", "Servicios", "Productos", "Sedes", "Rewards"] },
     { title: "Comercial", labels: ["Landing / Galeria", "Hotspot visitas", "Resenas", "Rankings", "WhatsApp/Plantillas", "Dispositivos"] },
-    { title: "Finanzas/Produccion", labels: ["Produccion", "Bonos", "Liquidaciones", "Deudas empleados", "Beneficios empleados"] },
+    { title: "Finanzas/Produccion", labels: ["Analisis", "Produccion", "Bonos", "Liquidaciones", "Deudas empleados", "Beneficios empleados"] },
     { title: "Sistema", labels: ["Configuracion", "Auditoria"] }
   ];
   return groups
