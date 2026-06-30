@@ -34,14 +34,21 @@ export function CrudManager({ module }: { module: Module }) {
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState<string | null>(null);
-  const [view, setView] = useState<"cards" | "table">("cards");
+  const [view, setView] = useState<"cards" | "table">(module === "customers" ? "table" : "cards");
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalRows, setTotalRows] = useState(0);
 
-  async function load() {
+  async function load(pageToLoad = currentPage, sizeToLoad = pageSize) {
     setLoading(true);
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     params.set("branch_id", localStorage.getItem("lbbs:branchScope") ?? "all");
+    if (module === "customers") {
+      params.set("page", String(pageToLoad));
+      params.set("pageSize", String(sizeToLoad));
+    }
     const queryString = `?${params}`;
     const [dataResponse, branchResponse, meResponse] = await Promise.all([fetch(`/api/control/${module}${queryString}`), fetch("/api/control/branches"), fetch("/api/control/me")]);
     const data = await dataResponse.json();
@@ -53,13 +60,18 @@ export function CrudManager({ module }: { module: Module }) {
       return;
     }
     setRows(data[module] ?? []);
+    if (module === "customers") setTotalRows(Number(data.total ?? 0));
     setBranches(branchData.branches ?? []);
     setRole(meData.employee?.role ?? null);
   }
 
   useEffect(() => {
-    load();
-    const listener = () => load();
+    if (module === "customers") setView("table");
+    load(1);
+    const listener = () => {
+      setCurrentPage(1);
+      load(1);
+    };
     window.addEventListener("branch-scope-change", listener);
     return () => window.removeEventListener("branch-scope-change", listener);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,26 +149,98 @@ export function CrudManager({ module }: { module: Module }) {
     setTemporaryPassword(data.temporaryPassword);
   }
 
+  const totalPages = module === "customers" ? Math.max(1, Math.ceil(totalRows / pageSize)) : 1;
+  const pageStart = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEnd = Math.min(totalRows, currentPage * pageSize);
+
+  async function goToCustomerPage(nextPage: number, nextPageSize = pageSize) {
+    const safePage = Math.min(Math.max(1, nextPage), Math.max(1, Math.ceil(totalRows / nextPageSize)));
+    setCurrentPage(safePage);
+    setPageSize(nextPageSize);
+    await load(safePage, nextPageSize);
+  }
+
   return (
     <section className="grid gap-5">
       <div className="flex flex-col gap-3">
         <h1 className="sr-only">{labels[module]}</h1>
         <div className="flex flex-wrap gap-2">
           <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={loading} onClick={load}>{loading ? <><ButtonSpinner /> Buscando</> : "Buscar"}</button>
-          <div className="inline-flex rounded-lg border border-[var(--border-soft)] p-1">
+          <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={loading} onClick={() => { setCurrentPage(1); load(1); }}>{loading ? <><ButtonSpinner /> Buscando</> : "Buscar"}</button>
+          {module !== "customers" ? <div className="inline-flex rounded-lg border border-[var(--border-soft)] p-1">
             <button className={`rounded-md px-3 py-1 text-sm ${view === "cards" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("cards")}>Cards</button>
             <button className={`rounded-md px-3 py-1 text-sm ${view === "table" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("table")}>Tabla</button>
-          </div>
+          </div> : null}
+          {module === "customers" ? <select className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={pageSize} disabled={loading} onChange={(event) => goToCustomerPage(1, Number(event.target.value))}><option value={25}>25 por página</option><option value={50}>50 por página</option><option value={100}>100 por página</option></select> : null}
           {canMutate ? <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-3 py-2 font-semibold text-black" onClick={() => setEditing(blank())}><Plus size={16} /> Nuevo</button> : null}
         </div>
       </div>
       {temporaryPassword ? <div className="rounded-lg border border-[var(--border-soft)] bg-[rgba(212,175,55,0.08)] p-4 text-sm">Password temporal visible una sola vez: <strong>{temporaryPassword}</strong><br />El empleado debe validar su correo y luego cambiar este password al ingresar.</div> : null}
-      {module === "customers" ? <CsvToolsPanel title="Importar clientes Google Contacts CSV" importUrl="/api/control/customers/import-preview" exportUrl="/api/control/reports/customers/export" exportFormat="xlsx" onImported={load} /> : null}
+      {false && module === "customers" ? <CsvToolsPanel title="Importar clientes desde Excel" templateUrl="/api/control/customers/template" importUrl="/api/control/customers/import-preview" exportUrl="/api/control/reports/customers/export" format="xlsx" exportFormat="xlsx" onImported={load} /> : null}
       {editing ? <EditorModal module={module} row={editing} branches={branches} saving={saving} onChange={setEditing} onSave={save} onCancel={() => setEditing(null)} /> : null}
       {loading && rows.length === 0 ? <TableSkeleton /> : null}
       {!loading && rows.length === 0 ? <EmptyState /> : null}
-      <div className={`${view === "cards" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "grid gap-2"} transition-opacity ${loading ? "pointer-events-none opacity-50" : ""}`}>
+      {module === "customers" && rows.length > 0 ? (
+        <div className={`overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-black/25 transition-opacity ${loading ? "pointer-events-none opacity-50" : ""}`}>
+          <div className="flex flex-col gap-2 border-b border-[var(--border-soft)] px-4 py-3 text-sm text-[var(--text-muted)] md:flex-row md:items-center md:justify-between">
+            <span>Mostrando {pageStart}-{pageEnd} de {totalRows} clientes</span>
+            <span>Página {currentPage} de {totalPages}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="bg-black/45 text-xs uppercase tracking-[0.12em] text-[var(--gold-soft)]">
+                <tr>
+                  <th className="px-4 py-3">Cliente</th>
+                  <th className="px-4 py-3">Celular</th>
+                  <th className="px-4 py-3">Sede</th>
+                  <th className="px-4 py-3">Atenciones</th>
+                  <th className="px-4 py-3">Rewards</th>
+                  <th className="px-4 py-3">Última atención</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const stats = Array.isArray(row.customer_visit_stats) ? row.customer_visit_stats[0] : row.customer_visit_stats;
+                  const rewards = Array.isArray(row.customer_reward_accounts) ? row.customer_reward_accounts[0] : row.customer_reward_accounts;
+                  const branch = Array.isArray(row.branches) ? row.branches[0]?.name : row.branches?.name;
+                  return (
+                    <tr key={row.id} className="border-t border-[var(--border-soft)]">
+                      <td className="px-4 py-3"><strong>{row.full_name ?? "Sin nombre"}</strong>{row.notes ? <p className="mt-1 line-clamp-1 text-xs text-[var(--text-muted)]">{row.notes}</p> : null}</td>
+                      <td className="px-4 py-3 text-[var(--text-muted)]">{row.phone ?? "Sin celular"}</td>
+                      <td className="px-4 py-3 text-[var(--text-muted)]">{branch ?? "Sin sede"}</td>
+                      <td className="px-4 py-3">{stats?.total_visits ?? 0}</td>
+                      <td className="px-4 py-3">{rewards?.available_rewards ?? 0}</td>
+                      <td className="px-4 py-3 text-[var(--text-muted)]">{stats?.last_visit_at ? new Date(stats.last_visit_at).toLocaleDateString("es-PE") : "Sin registro"}</td>
+                      <td className="px-4 py-3"><StatusBadge active={row.is_active} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          {canMutate ? <button className="rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setEditing(fromRow(row))}>Editar</button> : null}
+                          {canMutate && row.is_active ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs text-red-200" onClick={() => deactivate(row.id)}><Trash2 size={14} /> Desactivar</button> : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-[var(--border-soft)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm disabled:opacity-50" disabled={loading || currentPage <= 1} onClick={() => goToCustomerPage(currentPage - 1)}>Anterior</button>
+            <div className="flex flex-wrap justify-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }).map((_, index) => {
+                const start = Math.min(Math.max(1, currentPage - 2), Math.max(1, totalPages - 4));
+                const pageNumber = start + index;
+                if (pageNumber > totalPages) return null;
+                return <button key={pageNumber} className={`rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm ${pageNumber === currentPage ? "bg-[var(--gold)] text-black" : ""}`} disabled={loading} onClick={() => goToCustomerPage(pageNumber)}>{pageNumber}</button>;
+              })}
+            </div>
+            <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm disabled:opacity-50" disabled={loading || currentPage >= totalPages} onClick={() => goToCustomerPage(currentPage + 1)}>Siguiente</button>
+          </div>
+        </div>
+      ) : null}
+      {module !== "customers" ? <div className={`${view === "cards" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "grid gap-2"} transition-opacity ${loading ? "pointer-events-none opacity-50" : ""}`}>
         {rows.map((row) => (
           <article key={row.id} className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-3">
             <div className={view === "cards" ? "flex h-full flex-col justify-between gap-3" : "flex flex-col gap-3 md:flex-row md:items-center md:justify-between"}>
@@ -170,7 +254,6 @@ export function CrudManager({ module }: { module: Module }) {
                 <h2 className="mt-2 text-base font-semibold">{module === "employees" ? (`${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || row.full_name || row.name) : (row.name ?? row.full_name)}</h2>
                 {module === "employees" && row.nickname ? <p className="text-sm text-[var(--gold-soft)]">Apodo: {row.nickname}</p> : null}
                 <p className="text-sm text-[var(--text-muted)]">{describeRow(module, row)}</p>
-                {module === "customers" ? <CustomerStats row={row} /> : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 {module === "employees" ? <button className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1.5 text-xs" onClick={() => setProfileEmployeeId(row.id)}><Eye size={14} /> Ver perfil</button> : null}
@@ -194,7 +277,7 @@ export function CrudManager({ module }: { module: Module }) {
             </div>
           </article>
         ))}
-      </div>
+      </div> : null}
       <EmployeeProfileModal employeeId={profileEmployeeId} onClose={() => setProfileEmployeeId(null)} />
     </section>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReceiptText, Trash2 } from "lucide-react";
+import { Loader2, MessageCircle, ReceiptText, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PaymentMethodBadge } from "./payment-method-badge";
@@ -18,6 +18,7 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
   const [dateTo, setDateTo] = useState(today);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [busyThankYouId, setBusyThankYouId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -52,6 +53,19 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
     await load();
   }
 
+  async function sendThankYou(id: string) {
+    if (busyThankYouId) return;
+    setBusyThankYouId(id);
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/thank-you-whatsapp`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo generar WhatsApp", data.error ?? "Revisa el celular del cliente.");
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setBusyThankYouId(null);
+    }
+  }
+
   return (
     <section className="grid min-w-0 gap-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
@@ -74,11 +88,12 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
           const rewards = first(customer?.customer_reward_accounts);
           const itemNames = (order.service_order_items ?? []).filter((item: any) => !["reward_discount", "discount"].includes(item.item_type)).map((item: any) => item.name ?? item.description).filter(Boolean);
           const generic = isGenericCustomerPhone(customer?.phone);
+          const canThank = Boolean(customer?.phone) && !generic && order.status !== "anulado";
           return (
             <article key={order.id} className={`flex min-h-[210px] min-w-0 flex-col rounded-xl border bg-[var(--control-surface)] p-4 ${order.status === "anulado" ? "border-red-400/40 opacity-75" : "border-[var(--control-border)]"}`}>
               <div className="flex items-start justify-between gap-3"><div><p className={order.status === "anulado" ? "text-xs uppercase text-red-300" : "text-xs uppercase text-[var(--gold-soft)]"}>{order.status}</p><h2 className="mt-1 font-semibold">{generic ? "Cliente generico" : customer?.full_name ?? "Cliente"}</h2><p className="text-sm text-[var(--text-muted)]">{itemNames.join(" + ") || "Sin items"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p></div><strong className="text-[var(--gold)]">S/ {Number(order.total ?? 0).toFixed(2)}</strong></div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--text-muted)]"><span>{generic ? "Sin rewards" : `Rewards: ${rewards?.available_rewards ?? 0}`}</span>{(order.payment_details ?? []).map((payment: any, index: number) => <PaymentMethodBadge key={index} method={payment.method} />)}</div>
-              <div className="mt-4 flex flex-wrap gap-2"><Link className="rounded-lg border border-[var(--gold)] px-3 py-2 text-sm text-[var(--gold-soft)]" href={`/app/control/atenciones/${order.id}`}>Ver detalle</Link>{!mine && !["pagado", "anulado"].includes(order.status) ? <Link className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={`/app/control/atenciones/${order.id}?focus=payment`}><ReceiptText size={16} /> Pagar</Link> : null}{!mine && order.status !== "anulado" ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-red-200" onClick={() => voidOrder(order.id)}><Trash2 size={16} /> Anular</button> : null}</div>
+              <div className="mt-4 flex flex-wrap gap-2"><Link className="rounded-lg border border-[var(--gold)] px-3 py-2 text-sm text-[var(--gold-soft)]" href={`/app/control/atenciones/${order.id}`}>Ver detalle</Link>{canThank ? <button className="inline-flex items-center gap-2 rounded-lg border border-green-400/40 px-3 py-2 text-sm text-green-200 disabled:opacity-60" disabled={Boolean(busyThankYouId)} onClick={() => sendThankYou(order.id)}>{busyThankYouId === order.id ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />} Agradecer</button> : null}{!mine && !["pagado", "anulado"].includes(order.status) ? <Link className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={`/app/control/atenciones/${order.id}?focus=payment`}><ReceiptText size={16} /> Pagar</Link> : null}{!mine && order.status !== "anulado" ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-red-200" onClick={() => voidOrder(order.id)}><Trash2 size={16} /> Anular</button> : null}</div>
             </article>
           );
         })}

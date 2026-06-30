@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BadgeCheck, Loader2, Plus, Trash2 } from "lucide-react";
+import { BadgeCheck, Loader2, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { PaymentSplitEditor } from "./payment-split-editor";
 import { PaymentMethodBadge } from "./payment-method-badge";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
@@ -187,6 +187,19 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     }
   }
 
+  async function sendThankYou() {
+    if (busyAction) return;
+    setBusyAction("thank-you");
+    try {
+      const response = await fetch(`/api/control/service-orders/${id}/thank-you-whatsapp`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) return showError("No se pudo generar WhatsApp", data.error ?? "Revisa el celular del cliente.");
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function changeBarber() {
     if (busyAction || !responsibleBarberId || responsibleBarberId === barber?.id) return;
     if (!(await showConfirm("Cambiar barbero responsable", "La atencion y sus items de servicio se reasignaran al nuevo barbero."))) return;
@@ -245,6 +258,8 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     return <p className="text-sm text-[var(--text-muted)]">Cargando atención...</p>;
   }
 
+  const canThank = Boolean(customer?.phone) && !isGenericCustomerPhone(customer?.phone) && order.status !== "anulado";
+
   return (
     <section className="grid min-w-0 max-w-full gap-5 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_420px]">
       <div className="grid min-w-0 gap-4">
@@ -258,7 +273,15 @@ export function ServiceOrderDetail({ id }: { id: string }) {
               {reservation ? <p className="mt-1 text-sm text-[var(--text-muted)]">Reserva original: {new Date(reservation.starts_at).toLocaleString("es-PE")}</p> : null}
               <p className="mt-1 text-sm text-[var(--text-muted)]">Creada: {formatPeruDateTime(order.created_at)} - Atendida: {formatPeruDateTime(order.attended_at)}</p>
             </div>
-            <Link className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href="/app/control/atenciones">Volver</Link>
+            <div className="flex flex-wrap gap-2">
+              {canThank ? (
+                <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-green-400/40 px-3 py-2 text-sm text-green-200 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={sendThankYou}>
+                  {busyAction === "thank-you" ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />}
+                  Agradecer por WhatsApp
+                </button>
+              ) : null}
+              <Link className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href="/app/control/atenciones">Volver</Link>
+            </div>
           </div>
         </div>
 
@@ -413,6 +436,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
           <div className="grid gap-2">
             <Link className="rounded-lg border border-[var(--border-soft)] px-4 py-2 text-center" href={`/app/control/atenciones/${id}/ticket`}>Ver ticket</Link>
             <Link className="rounded-lg bg-[var(--gold)] px-4 py-2 text-center font-semibold text-black" href={`/app/control/atenciones/${id}/ticket`}>Imprimir / WhatsApp</Link>
+            {canThank ? <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-green-400/40 px-4 py-2 text-green-200 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={sendThankYou}>{busyAction === "thank-you" ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />} Agradecer al cliente</button> : null}
           </div>
         ) : null}
 

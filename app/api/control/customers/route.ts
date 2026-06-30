@@ -10,18 +10,25 @@ export async function GET(request: NextRequest) {
   if (!context.ok) return context.error;
   const q = request.nextUrl.searchParams.get("q")?.trim();
   const branchId = request.nextUrl.searchParams.get("branch_id") ?? request.nextUrl.searchParams.get("branchId");
-  let query = context.admin.from("customers").select("id,phone,normalized_phone,full_name,notes,branch_id,is_active,created_at,branches(name),customer_visit_stats(total_visits,last_visit_at),customer_reward_accounts(available_rewards,earned_rewards,redeemed_rewards)").order("created_at", { ascending: false });
+  const page = Math.max(1, Number(request.nextUrl.searchParams.get("page") ?? "1") || 1);
+  const pageSize = Math.min(100, Math.max(10, Number(request.nextUrl.searchParams.get("pageSize") ?? "25") || 25));
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  let query = context.admin
+    .from("customers")
+    .select("id,phone,normalized_phone,full_name,notes,branch_id,is_active,created_at,branches(name),customer_visit_stats(total_visits,last_visit_at),customer_reward_accounts(available_rewards,earned_rewards,redeemed_rewards)", { count: "exact" })
+    .order("created_at", { ascending: false });
   const scope = resolveBranchScope(context.employee, branchId);
   if (context.employee.role === "admin" && scope.mode === "branch") query = query.eq("branch_id", scope.branchId);
   if (context.employee.role === "recepcion") query = query.eq("branch_id", context.employee.branchId);
   if (context.employee.role === "barbero") {
     const { data: reservations } = await context.admin.from("reservations").select("customer_id").eq("employee_id", context.employee.employeeId);
     const ids = [...new Set((reservations ?? []).map((row) => row.customer_id).filter(Boolean))];
-    if (ids.length === 0) return NextResponse.json({ customers: [] });
+    if (ids.length === 0) return NextResponse.json({ customers: [], total: 0, page, pageSize });
     query = query.in("id", ids);
   }
   if (q) query = query.or(`phone.ilike.%${q}%,normalized_phone.ilike.%${normalizePhone(q)}%,full_name.ilike.%${q}%`);
-  const { data, error } = await query;
+  const { data, error, count } = await query.range(from, to);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const customerIds = (data ?? []).map((customer) => customer.id);
   const { data: paidOrders } = customerIds.length
@@ -40,7 +47,10 @@ export async function GET(request: NextRequest) {
       const stored = Array.isArray(customer.customer_visit_stats) ? customer.customer_visit_stats[0] : customer.customer_visit_stats;
       const live = liveStats.get(customer.id);
       return { ...customer, customer_visit_stats: [{ ...stored, total_visits: live?.total ?? Number(stored?.total_visits ?? 0), last_visit_at: live?.last ?? stored?.last_visit_at ?? null }] };
-    })
+    }),
+    total: count ?? 0,
+    page,
+    pageSize
   });
 }
 

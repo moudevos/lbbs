@@ -63,9 +63,13 @@ export function CsvToolsPanel({ title, templateUrl, importUrl, exportUrl, format
         const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
         const sheetName = workbook.SheetNames[0];
         const rows = sheetName ? XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: "" }) : [];
+        const response = await fetch(importUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
+        const data = await response.json();
+        if (!response.ok) return showError("No se pudo previsualizar", data.error ?? "Revisa el archivo.");
         setSelectedFile(file);
-        setPreviewRows(rows);
-        setSummary(`Previsualizacion lista. Filas leidas: ${rows.length}. Revisa antes de confirmar.`);
+        setPendingRows(rows);
+        setPreviewRows(data.preview ?? rows);
+        setSummary(`Previsualización lista. Filas leídas: ${data.read ?? rows.length}. Nuevos: ${data.newCount ?? 0}. Existentes: ${data.existingCount ?? 0}. Inválidos/duplicados: ${data.skippedCount ?? 0}. Revisa antes de confirmar.`);
       } catch (error) {
         await showError("No se pudo previsualizar", error instanceof Error ? error.message : "Archivo XLSX invalido.");
       } finally {
@@ -93,31 +97,16 @@ export function CsvToolsPanel({ title, templateUrl, importUrl, exportUrl, format
     if (!selectedFile || !importUrl) return;
     setWorking(true);
     try {
-      if (format === "csv") {
-        const confirmUrl = importUrl.replace(/import-preview$/, "import-confirm");
-        const response = await fetch(confirmUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: pendingRows }) });
-        const data = await response.json();
-        if (!response.ok) return showError("No se pudo importar", data.error ?? "Revisa el archivo.");
-        const errors = data.errors ?? [];
-        setSummary(`Leidas: ${data.read ?? pendingRows.length}. Creadas: ${data.created ?? 0}. Actualizadas: ${data.updated ?? 0}. Existentes: ${data.existing ?? 0}. Omitidas: ${data.skipped ?? 0}. Errores: ${errors.length}.`);
-        setSelectedFile(null);
-        setPendingRows([]);
-        setPreviewRows([]);
-        await showSuccess("Importacion completada");
-        onImported?.();
-        return;
-      }
-      const body = new FormData();
-      body.set("file", selectedFile);
-      const response = await fetch(importUrl, { method: "POST", body });
+      const confirmUrl = importUrl.replace(/import-preview$/, "import-confirm");
+      const response = await fetch(confirmUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: pendingRows }) });
       const data = await response.json();
       if (!response.ok) return showError("No se pudo importar", data.error ?? "Revisa el archivo.");
       const errors = data.errors ?? [];
-      setSummary(`Leidas: ${data.read ?? previewRows.length}. Creadas: ${data.created ?? 0}. Actualizadas: ${data.updated ?? 0}. Existentes: ${data.existing ?? 0}. Omitidas: ${data.skipped ?? 0}. Errores: ${errors.length}.`);
+      setSummary(`Leídas: ${data.read ?? pendingRows.length}. Creadas: ${data.created ?? 0}. Actualizadas: ${data.updated ?? 0}. Existentes: ${data.existing ?? 0}. Omitidas: ${data.skipped ?? 0}. Errores: ${errors.length}.`);
       setSelectedFile(null);
       setPendingRows([]);
       setPreviewRows([]);
-      await showSuccess("Importacion completada");
+      await showSuccess("Importación completada");
       onImported?.();
     } finally {
       setWorking(false);
@@ -129,13 +118,13 @@ export function CsvToolsPanel({ title, templateUrl, importUrl, exportUrl, format
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="font-semibold">{title}</h2>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">{format === "xlsx" ? "Formato XLSX con previsualizacion antes de guardar." : "Formato CSV compatible con Google Contacts."}</p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{format === "xlsx" ? "Formato XLSX con previsualización antes de guardar." : "Formato CSV compatible con Google Contacts."}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {templateUrl ? <a className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={templateUrl}>Descargar plantilla</a> : null}
           {exportUrl ? <a className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={exportUrl}>Exportar {exportFormat.toUpperCase()}</a> : null}
           {importUrl ? <label className="cursor-pointer rounded-lg bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-black">{working ? "Importando..." : previewing ? "Previsualizando..." : format === "xlsx" ? "Previsualizar XLSX" : "Importar CSV"}<input className="hidden" type="file" accept={format === "csv" ? ".csv,text/csv" : ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"} disabled={working || previewing} onChange={(event) => importFile(event.target.files?.[0] ?? null)} /></label> : null}
-          {selectedFile ? <button className="rounded-lg border border-[var(--gold)] px-3 py-2 text-sm font-semibold text-[var(--gold)] disabled:opacity-60" disabled={working} onClick={confirmImport}>{working ? "Guardando..." : "Confirmar importacion"}</button> : null}
+          {selectedFile ? <button className="rounded-lg border border-[var(--gold)] px-3 py-2 text-sm font-semibold text-[var(--gold)] disabled:opacity-60" disabled={working} onClick={confirmImport}>{working ? "Guardando..." : "Confirmar importación"}</button> : null}
         </div>
       </div>
       {summary ? <p className="mt-3 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs text-[var(--text-muted)]">{summary}</p> : null}
