@@ -18,10 +18,11 @@ export async function GET(request: NextRequest) {
   const branchId = searchParams.get("branch_id");
   const barberId = searchParams.get("barber_id");
   const status = searchParams.get("status");
+  const orderType = searchParams.get("order_type");
 
   let query = context.admin
     .from("service_orders")
-    .select("id,status,origin,subtotal,total,total_paid,balance,discount_amount,service_date,attended_at,created_at,paid_at,voided_at,branches(name),customers(full_name,phone,customer_reward_accounts(available_rewards,earned_rewards,redeemed_rewards)),employees(first_name,last_name),services(name,sku),service_order_items(item_type,name,description,quantity,unit_price,subtotal,products(name,sku)),payment_details(method,amount,reference)")
+    .select("id,status,origin,order_type,subtotal,total,total_paid,balance,discount_amount,service_date,attended_at,created_at,paid_at,voided_at,branches(name),customers(full_name,phone,customer_reward_accounts(available_rewards,earned_rewards,redeemed_rewards)),employees(first_name,last_name),services(name,sku),service_order_items(item_type,name,description,quantity,unit_price,subtotal,products(name,sku)),payment_details(method,amount,reference)")
     .gte("service_date", from)
     .lte("service_date", to)
     .order("attended_at", { ascending: false });
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
     query = query.eq("employee_id", context.employee.employeeId);
   }
   if (barberId) query = query.eq("employee_id", barberId);
+  if (orderType && orderType !== "all") query = query.eq("order_type", orderType);
   if (status && status !== "all") query = query.eq("status", status);
   else if (!status) query = query.neq("status", "anulado");
 

@@ -7,7 +7,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 
   const { data, error } = await context.admin
     .from("service_orders")
-    .select("id,status,subtotal,total,total_paid,balance,discount_amount,paid_at,created_at,branches(id,name,address,phone),customers(full_name,phone),employees(id,first_name,last_name),service_order_items(id,item_type,name,description,quantity,unit_price,original_unit_price,discount_amount,discount_percent,subtotal,amount),payment_details(id,method,amount,reference)")
+    .select("id,status,order_type,subtotal,total,total_paid,balance,discount_amount,paid_at,created_at,branches(id,name,address,phone),customers(full_name,phone),employees(id,first_name,last_name),service_order_items(id,item_type,name,description,quantity,unit_price,original_unit_price,discount_amount,discount_percent,subtotal,amount),payment_details(id,method,amount,reference)")
     .eq("id", params.id)
     .maybeSingle();
 

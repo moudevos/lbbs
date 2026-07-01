@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { BadgeCheck, Loader2, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { PaymentSplitEditor } from "./payment-split-editor";
 import { PaymentMethodBadge } from "./payment-method-badge";
-import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
+import { showConfirm, showError, showSuccess, showTextPrompt } from "@/lib/ui/swal";
 import type { PaymentMethod, PaymentSplit } from "@/lib/service-orders/types";
 import type { BarberOption, ServiceOption } from "@/lib/reservations/types";
 import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
@@ -42,7 +42,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
     const response = await fetch(`/api/control/service-orders/${id}`);
     const data = await response.json();
     if (!response.ok) {
-      await showError("No se pudo cargar atención", data.error ?? "Intenta nuevamente.");
+      await showError("No se pudo cargar atenciÃ³n", data.error ?? "Intenta nuevamente.");
       return;
     }
     setOrder(data.serviceOrder);
@@ -78,6 +78,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   const barber = first(order?.employees);
   const service = first(order?.services);
   const reservation = first(order?.reservations);
+  const isProductSale = order?.order_type === "product_sale";
   const rewards = first(customer?.customer_reward_accounts);
   const items = order?.service_order_items ?? [];
   const billableItems = items.filter((item: any) => ["service", "custom_service", "manual_extra", "product", "snack"].includes(item.item_type));
@@ -139,7 +140,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
 
   async function deleteItem(itemId: string) {
     if (busyAction) return;
-    if (!(await showConfirm("Eliminar item", "Solo se permite antes de pagar la atención."))) return;
+    if (!(await showConfirm("Eliminar item", "Solo se permite antes de pagar la atenciÃ³n."))) return;
     setBusyAction(`delete-${itemId}`);
     try {
       const response = await fetch(`/api/control/service-orders/${id}/items/${itemId}`, { method: "DELETE" });
@@ -167,7 +168,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
       const data = await response.json();
       if (!response.ok) return showError("No se pudo registrar pago", data.error ?? "Revisa los montos.");
       await load();
-      await showSuccess("Atención pagada");
+      await showSuccess("AtenciÃ³n pagada");
     } finally {
       setBusyAction(null);
     }
@@ -175,10 +176,17 @@ export function ServiceOrderDetail({ id }: { id: string }) {
 
   async function voidOrder() {
     if (busyAction) return;
-    if (!(await showConfirm("Anular atención", "La atención quedará anulada y auditada."))) return;
+    const reason = isProductSale
+      ? await showTextPrompt("Anular venta de productos", "El motivo es obligatorio y quedara auditado.")
+      : (await showConfirm("Anular atenciÃ³n", "La atenciÃ³n quedarÃ¡ anulada y auditada.")) ? "Atencion anulada" : null;
+    if (!reason) return;
     setBusyAction("void");
     try {
-      const response = await fetch(`/api/control/service-orders/${id}/void`, { method: "POST" });
+      const response = await fetch(`/api/control/service-orders/${id}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
       const data = await response.json();
       if (!response.ok) return showError("No se pudo anular", data.error ?? "Intenta nuevamente.");
       await load();
@@ -255,7 +263,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
   }
 
   if (!order) {
-    return <p className="text-sm text-[var(--text-muted)]">Cargando atención...</p>;
+    return <p className="text-sm text-[var(--text-muted)]">Cargando atenciÃ³n...</p>;
   }
 
   const canThank = Boolean(customer?.phone) && !isGenericCustomerPhone(customer?.phone) && order.status !== "anulado";
@@ -266,10 +274,10 @@ export function ServiceOrderDetail({ id }: { id: string }) {
         <div className="rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--gold-soft)]">Atención</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--gold-soft)]">{isProductSale ? "Venta de productos" : "Atención"}</p>
               <h1 className="mt-2 text-2xl font-semibold">{isGenericCustomerPhone(customer?.phone) ? "Cliente generico" : customer?.full_name ?? "Cliente"}</h1>
               <p className="mt-1 text-sm text-[var(--text-muted)]">{customer?.phone ?? "Sin celular"} - {branch?.name ?? "Sede"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">Origen: {order.origin === "reservation" ? "Reserva" : "Atención directa"} - Estado: {order.status}</p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">Tipo: {isProductSale ? "Venta de productos" : "Atención"} - Origen: {order.origin === "reservation" ? "Reserva" : "Atención directa"} - Estado: {order.status}</p>
               {reservation ? <p className="mt-1 text-sm text-[var(--text-muted)]">Reserva original: {new Date(reservation.starts_at).toLocaleString("es-PE")}</p> : null}
               <p className="mt-1 text-sm text-[var(--text-muted)]">Creada: {formatPeruDateTime(order.created_at)} - Atendida: {formatPeruDateTime(order.attended_at)}</p>
             </div>
@@ -326,7 +334,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
         <div className="order-[2] rounded-lg border border-[var(--border-soft)] bg-black/35 p-4">
           <h2 className="font-semibold">Items</h2>
           <div className="mt-3 grid gap-2">
-            {items.length === 0 ? <p className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">Esta atención no tiene items registrados. Agrega al menos uno antes de cobrar.</p> : null}
+            {items.length === 0 ? <p className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">Esta atenciÃ³n no tiene items registrados. Agrega al menos uno antes de cobrar.</p> : null}
             {items.map((item: any) => (
               <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-[var(--border-soft)] bg-black/25 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -422,7 +430,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
               {Number(rewards?.available_rewards ?? 0) > 0 ? (
                 hasClassicCut
                   ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--gold)] px-3 py-2 text-xs disabled:opacity-60" disabled={Boolean(busyAction)} onClick={redeem}>{busyAction === "classic_cut" ? <Loader2 size={14} className="animate-spin" /> : null}Aplicar corte gratis</button>
-                  : <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">Reward disponible solo para Corte Clásico.</p>
+                  : <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">Reward disponible solo para Corte ClÃ¡sico.</p>
               ) : null}
               {order.reward_redemption_id ? <button className="rounded-lg border border-red-400/40 px-3 py-2 text-xs text-red-200" disabled={Boolean(busyAction)} onClick={removeReward}>Quitar reward</button> : null}
             </div>
@@ -440,7 +448,7 @@ export function ServiceOrderDetail({ id }: { id: string }) {
           </div>
         ) : null}
 
-        {order.status !== "anulado" ? <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-4 py-2 text-red-200 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={voidOrder}>{busyAction === "void" ? <Loader2 size={16} className="animate-spin" /> : null}Anular atención</button> : null}
+        {order.status !== "anulado" ? <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] px-4 py-2 text-red-200 disabled:opacity-60" disabled={Boolean(busyAction)} onClick={voidOrder}>{busyAction === "void" ? <Loader2 size={16} className="animate-spin" /> : null}{isProductSale ? "Anular venta" : "Anular atención"}</button> : null}
       </aside>
     </section>
   );

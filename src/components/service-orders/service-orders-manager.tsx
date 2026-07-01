@@ -17,6 +17,7 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
   const [date, setDate] = useState(today);
   const [dateTo, setDateTo] = useState(today);
   const [status, setStatus] = useState("");
+  const [orderType, setOrderType] = useState("all");
   const [loading, setLoading] = useState(true);
   const [busyThankYouId, setBusyThankYouId] = useState<string | null>(null);
 
@@ -24,6 +25,7 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
     setLoading(true);
     const params = new URLSearchParams({ from: date, to: dateTo, branch_id: localStorage.getItem("lbbs:branchScope") ?? "all" });
     if (status) params.set("status", status);
+    if (orderType !== "all") params.set("order_type", orderType);
     const [ordersResponse, meResponse] = await Promise.all([fetch(`/api/control/service-orders?${params}`), fetch("/api/control/me")]);
     const data = await ordersResponse.json();
     const me = await meResponse.json();
@@ -43,7 +45,7 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
       window.removeEventListener("lbbs:operational-realtime", refresh);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, dateTo, status]);
+  }, [date, dateTo, status, orderType]);
 
   async function voidOrder(id: string) {
     if (!(await showConfirm("Anular atencion", "La atencion quedara anulada y auditada."))) return;
@@ -77,6 +79,8 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
           <input className="control-input min-w-0 xl:w-[145px]" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
           <input className="control-input min-w-0 xl:w-[145px]" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
           <select className="control-input min-w-0 xl:w-[145px]" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Activas</option><option value="pendiente_pago">Pendientes</option><option value="pagado">Pagadas</option><option value="anulado">Anuladas</option><option value="all">Todas</option></select>
+          <select className="control-input min-w-0 xl:w-[170px]" value={orderType} onChange={(event) => setOrderType(event.target.value)}><option value="all">Todos los tipos</option><option value="service_order">Atencion</option><option value="product_sale">Venta productos</option><option value="mixed_order">Mixta</option></select>
+          {!mine && role !== "barbero" ? <Link className="rounded-lg border border-[var(--gold)] px-4 py-2 font-semibold text-[var(--gold-soft)]" href="/app/control/atenciones/venta-rapida">Venta rapida</Link> : null}
           {!mine && role !== "barbero" ? <Link className="rounded-lg bg-[var(--gold)] px-4 py-2 font-semibold text-black" href="/app/control/atenciones/nueva">Nueva atencion</Link> : null}
         </div>
       </div>
@@ -89,9 +93,10 @@ export function ServiceOrdersManager({ mine = false }: { mine?: boolean }) {
           const itemNames = (order.service_order_items ?? []).filter((item: any) => !["reward_discount", "discount"].includes(item.item_type)).map((item: any) => item.name ?? item.description).filter(Boolean);
           const generic = isGenericCustomerPhone(customer?.phone);
           const canThank = Boolean(customer?.phone) && !generic && order.status !== "anulado";
+          const isProductSale = order.order_type === "product_sale";
           return (
             <article key={order.id} className={`flex min-h-[210px] min-w-0 flex-col rounded-xl border bg-[var(--control-surface)] p-4 ${order.status === "anulado" ? "border-red-400/40 opacity-75" : "border-[var(--control-border)]"}`}>
-              <div className="flex items-start justify-between gap-3"><div><p className={order.status === "anulado" ? "text-xs uppercase text-red-300" : "text-xs uppercase text-[var(--gold-soft)]"}>{order.status}</p><h2 className="mt-1 font-semibold">{generic ? "Cliente generico" : customer?.full_name ?? "Cliente"}</h2><p className="text-sm text-[var(--text-muted)]">{itemNames.join(" + ") || "Sin items"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p></div><strong className="text-[var(--gold)]">S/ {Number(order.total ?? 0).toFixed(2)}</strong></div>
+              <div className="flex items-start justify-between gap-3"><div><p className={order.status === "anulado" ? "text-xs uppercase text-red-300" : "text-xs uppercase text-[var(--gold-soft)]"}>{order.status}</p><span className="mt-1 inline-flex rounded-full border border-[var(--control-border)] px-2 py-0.5 text-[11px] text-[var(--control-muted)]">{isProductSale ? "Venta de productos" : "Atencion"}</span><h2 className="mt-1 font-semibold">{generic ? "Cliente generico" : customer?.full_name ?? "Cliente"}</h2><p className="text-sm text-[var(--text-muted)]">{itemNames.join(" + ") || "Sin items"} - {barber ? `${barber.first_name} ${barber.last_name}` : "Sin barbero"}</p></div><strong className="text-[var(--gold)]">S/ {Number(order.total ?? 0).toFixed(2)}</strong></div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--text-muted)]"><span>{generic ? "Sin rewards" : `Rewards: ${rewards?.available_rewards ?? 0}`}</span>{(order.payment_details ?? []).map((payment: any, index: number) => <PaymentMethodBadge key={index} method={payment.method} />)}</div>
               <div className="mt-4 flex flex-wrap gap-2"><Link className="rounded-lg border border-[var(--gold)] px-3 py-2 text-sm text-[var(--gold-soft)]" href={`/app/control/atenciones/${order.id}`}>Ver detalle</Link>{canThank ? <button className="inline-flex items-center gap-2 rounded-lg border border-green-400/40 px-3 py-2 text-sm text-green-200 disabled:opacity-60" disabled={Boolean(busyThankYouId)} onClick={() => sendThankYou(order.id)}>{busyThankYouId === order.id ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} />} Agradecer</button> : null}{!mine && !["pagado", "anulado"].includes(order.status) ? <Link className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm" href={`/app/control/atenciones/${order.id}?focus=payment`}><ReceiptText size={16} /> Pagar</Link> : null}{!mine && order.status !== "anulado" ? <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-red-200" onClick={() => voidOrder(order.id)}><Trash2 size={16} /> Anular</button> : null}</div>
             </article>

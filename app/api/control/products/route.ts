@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   } else {
     query = query.or(`branch_id.is.null,branch_id.eq.${context.employee.branchId}`);
   }
-  if (q) query = query.or(`sku.ilike.%${q}%,name.ilike.%${q}%,category.ilike.%${q}%`);
+  if (q) query = query.or(`sku.ilike.%${q}%,name.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%`);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

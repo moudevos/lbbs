@@ -45,6 +45,27 @@ export async function showConfirm(title: string, text = "Esta accion sera audita
   return result.isConfirmed;
 }
 
+export async function showTextPrompt(title: string, text = "Esta accion sera auditada.") {
+  const result = await swalThemed.fire({
+    title,
+    text,
+    icon: "warning",
+    input: "textarea",
+    inputPlaceholder: "Escribe el motivo",
+    inputAttributes: {
+      "aria-label": "Motivo"
+    },
+    showCancelButton: true,
+    confirmButtonText: "Confirmar",
+    cancelButtonText: "Cancelar",
+    inputValidator: (value) => {
+      if (!value?.trim()) return "El motivo es obligatorio.";
+      return null;
+    }
+  });
+  return result.isConfirmed ? String(result.value ?? "").trim() : null;
+}
+
 export function showLoading(title = "Procesando...") {
   return swalThemed.fire({
     title,

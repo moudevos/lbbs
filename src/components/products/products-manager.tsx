@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, ClipboardList, History, Loader2, Package, Plus, PlusCircle, Save, Trash2 } from "lucide-react";
 import { showConfirm, showError, showSuccess } from "@/lib/ui/swal";
 import type { BranchOption } from "@/lib/reservations/types";
@@ -17,6 +17,7 @@ export function ProductsManager() {
   const [stockAction, setStockAction] = useState<{ product: Product; stock: Product; mode: "ingreso" | "ajuste" } | null>(null);
   const [movementAction, setMovementAction] = useState<{ product: Product; stock: Product } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const didMountSearch = useRef(false);
 
   async function load() {
     const params = new URLSearchParams();
@@ -46,6 +47,18 @@ export function ProductsManager() {
     return () => window.removeEventListener("branch-scope-change", listener);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!didMountSearch.current) {
+      didMountSearch.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 350);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   function blank(): Product {
     return { name: "", description: "", category: "snack", salePrice: 0, cost: "", stockCurrent: 0, stockMinimum: 0, branchId: "", countsForSellerCredit: false, sellerCreditAmount: 0 };
@@ -99,8 +112,7 @@ export function ProductsManager() {
       <div className="flex flex-col gap-3">
         <h1 className="sr-only">Productos</h1>
         <div className="flex flex-wrap gap-2">
-          <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <button className="rounded-lg border border-[var(--border-soft)] px-3 py-2" onClick={load}>Buscar</button>
+          <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar producto por nombre, SKU o categoria" value={query} onChange={(event) => setQuery(event.target.value)} />
           {canMutate ? <button className="inline-flex items-center gap-2 rounded-lg bg-[var(--gold)] px-3 py-2 font-semibold text-black" onClick={() => setEditing(blank())}><Plus size={16} /> Nuevo</button> : null}
         </div>
       </div>

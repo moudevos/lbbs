@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { Eye, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -39,6 +39,7 @@ export function CrudManager({ module }: { module: Module }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalRows, setTotalRows] = useState(0);
+  const didMountSearch = useRef(false);
 
   async function load(pageToLoad = currentPage, sizeToLoad = pageSize) {
     setLoading(true);
@@ -76,6 +77,19 @@ export function CrudManager({ module }: { module: Module }) {
     return () => window.removeEventListener("branch-scope-change", listener);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [module]);
+
+  useEffect(() => {
+    if (!didMountSearch.current) {
+      didMountSearch.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setCurrentPage(1);
+      void load(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   function blank(): Row {
     if (module === "branches") return { name: "", address: "", phone: "", imageUrl: null, imageAlt: "", schedules: defaultBranchSchedule() };
@@ -165,8 +179,8 @@ export function CrudManager({ module }: { module: Module }) {
       <div className="flex flex-col gap-3">
         <h1 className="sr-only">{labels[module]}</h1>
         <div className="flex flex-wrap gap-2">
-          <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder="Buscar" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <button className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 disabled:opacity-60" disabled={loading} onClick={() => { setCurrentPage(1); load(1); }}>{loading ? <><ButtonSpinner /> Buscando</> : "Buscar"}</button>
+          <input className="rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" placeholder={searchPlaceholder(module)} value={query} onChange={(e) => setQuery(e.target.value)} />
+          {loading && query ? <span className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-sm text-[var(--text-muted)]"><ButtonSpinner /> Buscando</span> : null}
           {module !== "customers" ? <div className="inline-flex rounded-lg border border-[var(--border-soft)] p-1">
             <button className={`rounded-md px-3 py-1 text-sm ${view === "cards" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("cards")}>Cards</button>
             <button className={`rounded-md px-3 py-1 text-sm ${view === "table" ? "bg-[var(--gold)] text-black" : "text-[var(--text-muted)]"}`} onClick={() => setView("table")}>Tabla</button>
@@ -325,6 +339,13 @@ function describeRow(module: Module, row: Row) {
   if (module === "employees") return `${row.first_name ?? ""} ${row.last_name ?? ""} - ${row.specialty ?? "Sin especialidad"} - ${row.email ?? "Sin email"} - ${row.onboarding_status ?? (row.must_change_password ? "pending_password_change" : "active")}`;
   if (module === "customers") return `${row.phone ?? "Sin celular"} - ${row.notes ?? "Sin notas"}`;
   return `${row.address ?? "Sin direccion"} - ${row.phone ?? "Sin celular"}`;
+}
+
+function searchPlaceholder(module: Module) {
+  if (module === "customers") return "Buscar cliente por nombre o celular";
+  if (module === "employees") return "Buscar empleado por nombre, rol o email";
+  if (module === "services") return "Buscar servicio por nombre o descripcion";
+  return "Buscar";
 }
 
 function defaultBranchSchedule() {

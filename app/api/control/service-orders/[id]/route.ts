@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { writeAuditLog } from "@/lib/audit";
 
-const orderSelect = "id,status,origin,subtotal,total,total_paid,balance,discount_amount,observations,created_at,attended_at,paid_at,voided_at,reservation_id,reservations(id,starts_at,ends_at,status),branches(id,name),customers(id,full_name,phone,customer_reward_accounts(*)),employees(id,first_name,last_name),services(id,name,sku),service_order_items(id,item_type,name,description,quantity,unit_price,original_unit_price,discount_percent,discount_rule,discount_amount,amount,subtotal,product_id,service_id,sold_by_employee_id,seller_credit_amount,counts_for_seller_credit,products(id,name,sku,category,counts_for_seller_credit,seller_credit_amount)),payment_details(id,method,amount,reference),customer_reward_redemptions(*)";
+const orderSelect = "id,status,origin,order_type,subtotal,total,total_paid,balance,discount_amount,observations,created_at,attended_at,paid_at,voided_at,reservation_id,reservations(id,starts_at,ends_at,status),branches(id,name),customers(id,full_name,phone,customer_reward_accounts(*)),employees(id,first_name,last_name),services(id,name,sku),service_order_items(id,item_type,name,description,quantity,unit_price,original_unit_price,discount_percent,discount_rule,discount_amount,amount,subtotal,product_id,service_id,sold_by_employee_id,seller_credit_amount,counts_for_seller_credit,products(id,name,sku,category,counts_for_seller_credit,seller_credit_amount)),payment_details(id,method,amount,reference),customer_reward_redemptions(*)";
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   const context = await requireEmployee();

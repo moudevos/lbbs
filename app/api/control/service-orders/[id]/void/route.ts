@@ -11,13 +11,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const body = await request.json().catch(() => ({}));
   const { data: order } = await context.admin
     .from("service_orders")
-    .select("id,branch_id,status,service_order_items(id,item_type,product_id,quantity)")
+    .select("id,branch_id,status,order_type,service_order_items(id,item_type,product_id,quantity)")
     .eq("id", params.id)
     .maybeSingle();
 
   if (!order) return NextResponse.json({ error: "Atención no encontrada" }, { status: 404 });
   if (context.employee.role === "recepcion" && order.branch_id !== context.employee.branchId) {
     return NextResponse.json({ error: "Atención fuera de tu sede" }, { status: 403 });
+  }
+  if (order.order_type === "product_sale" && !String(body.reason ?? "").trim()) {
+    return NextResponse.json({ error: "Motivo obligatorio para anular venta de productos" }, { status: 400 });
   }
 
   for (const item of (order.service_order_items ?? []) as any[]) {

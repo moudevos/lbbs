@@ -50,7 +50,7 @@ export async function getAnalyticsDataset(admin: AdminClient, filters: Analytics
   let query = admin
     .from("service_orders")
     .select(`
-      id,status,origin,total,subtotal,total_paid,balance,discount_amount,service_date,created_at,attended_at,paid_at,voided_at,branch_id,employee_id,customer_id,
+      id,status,origin,order_type,total,subtotal,total_paid,balance,discount_amount,service_date,created_at,attended_at,paid_at,voided_at,branch_id,employee_id,customer_id,
       branches(id,name),
       customers(id,full_name,phone,created_at),
       employees(id,first_name,last_name),
@@ -108,9 +108,11 @@ export function calculateSummary(dataset: AnalyticsDataset) {
   const totalCollected = round(payments.reduce((sum, { payment }) => sum + amount(payment.amount), 0));
   const totalSold = round(paid.reduce((sum, order) => sum + amount(order.total), 0));
   const servicesTotal = round(services.reduce((sum, { item }) => sum + itemAmount(item), 0));
+  const serviceUnits = round(services.reduce((sum, { item }) => sum + amount(item.quantity || 1), 0));
   const productsTotal = round(barberProducts.reduce((sum, { item }) => sum + itemAmount(item), 0));
   const snacksTotal = round(snacks.reduce((sum, { item }) => sum + itemAmount(item), 0));
   const estimatedBarberProduction = round(services.reduce((sum, { item }) => sum + validProduction(item).productionAmount, 0));
+  const serviceDeductionTotal = round(services.reduce((sum, { item }) => sum + validProduction(item).deductionAmount, 0));
   const estimatedBarberPay = round(services.reduce((sum, { item }) => sum + validProduction(item).barberEarning, 0));
   const estimatedProductCost = round(products.reduce((sum, { item }) => sum + productCost(item), 0));
   const missingProductCosts = products.some(({ item }) => productUnitCost(item) <= 0);
@@ -121,8 +123,10 @@ export function calculateSummary(dataset: AnalyticsDataset) {
     totalSold,
     totalCollected,
     servicesTotal,
+    serviceUnits,
     productsTotal,
     snacksTotal,
+    serviceDeductionTotal,
     voidedTotal: round(voided.reduce((sum, order) => sum + amount(order.total), 0)),
     voidedCount: voided.length,
     attentionCount: paid.length,
@@ -325,9 +329,10 @@ export function movements(dataset: AnalyticsDataset) {
     time: order.attended_at ?? order.created_at,
     customer: first(order.customers)?.full_name ?? "Cliente",
     phone: first(order.customers)?.phone ?? "",
-    type: order.origin ?? "atencion",
+    type: order.order_type === "product_sale" ? "Venta de productos" : order.origin ?? "atencion",
     category: orderCategory(order),
     amount: amount(order.total),
+    deduction: orderDeduction(order),
     paymentMethod: paymentDetails(order).map((payment: any) => payment.method).join(" + ") || "Sin pago",
     status: order.status,
     barber: barberName(first(order.employees)),
@@ -357,9 +362,9 @@ function validOrders(orders: any[]) {
 }
 
 function validProduction(item: any) {
-  if (["courtesy", "reward_discount"].includes(String(item.item_type))) return { productionAmount: 0, barberEarning: 0 };
+  if (["courtesy", "reward_discount"].includes(String(item.item_type))) return { productionAmount: 0, deductionAmount: 0, barberEarning: 0 };
   const name = `${item.name ?? ""} ${item.description ?? ""}`.toLowerCase();
-  if (name.includes("empleado") || name.includes("50%")) return { productionAmount: 0, barberEarning: 0 };
+  if (name.includes("empleado") || name.includes("50%")) return { productionAmount: 0, deductionAmount: 0, barberEarning: 0 };
   return calculateServiceProduction({ grossAmount: itemAmount(item), percentage: Number(item.production_percentage ?? item.applied_percentage ?? 0) });
 }
 
@@ -432,6 +437,12 @@ function orderCategory(order: any) {
   if (items.some((item: any) => productCategory(item) === "snack")) return "snack";
   if (items.some((item: any) => ["product", "snack"].includes(String(item.item_type)))) return "producto";
   return "otro";
+}
+
+function orderDeduction(order: any) {
+  return round(orderItems(order)
+    .filter((item: any) => validServiceTypes.includes(String(item.item_type)))
+    .reduce((sum: number, item: any) => sum + validProduction(item).deductionAmount, 0));
 }
 
 function first<T>(value: T | T[] | null | undefined): T | null {

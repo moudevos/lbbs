@@ -52,13 +52,15 @@ export async function createServiceOrder({
   discountAmount = 0,
   rewardRedemptionId = null,
   status = "registrado",
-  serviceDate = null
+  serviceDate = null,
+  orderType = "service_order",
+  productSellerFallbackId = employeeId
 }: {
   admin: AdminClient;
   branchId: string;
   customerPhone: string;
   customerName: string;
-  employeeId: string;
+  employeeId: string | null;
   serviceId?: string | null;
   total: number;
   additions?: { name: string; amount: number }[];
@@ -70,6 +72,8 @@ export async function createServiceOrder({
   rewardRedemptionId?: string | null;
   status?: "registrado" | "pendiente_pago";
   serviceDate?: string | null;
+  orderType?: "service_order" | "product_sale" | "mixed_order";
+  productSellerFallbackId?: string | null;
 }) {
   if (reservationId) {
     const { data: existing } = await admin
@@ -114,6 +118,7 @@ export async function createServiceOrder({
       customer_id: customerResult.customer.id,
       service_id: serviceId ?? null,
       origin,
+      order_type: orderType,
       status,
       subtotal,
       total: finalTotal,
@@ -183,7 +188,7 @@ export async function createServiceOrder({
       amount: item.subtotal,
       subtotal: item.subtotal,
       branch_id: branchId,
-      sold_by_employee_id: item.soldByEmployeeId ?? employeeId,
+        sold_by_employee_id: item.soldByEmployeeId ?? productSellerFallbackId,
       counts_for_seller_credit: item.countsForSellerCredit,
       seller_credit_amount: item.sellerCreditAmount
     })));

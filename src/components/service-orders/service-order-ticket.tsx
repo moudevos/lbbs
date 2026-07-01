@@ -34,13 +34,14 @@ export function ServiceOrderTicket({ id }: { id: string }) {
   const branch = first(ticket?.branches);
   const customer = first(ticket?.customers);
   const barber = first(ticket?.employees);
+  const isProductSale = ticket?.order_type === "product_sale";
   const items = ticket?.service_order_items ?? [];
   const payments = ticket?.payment_details ?? [];
   const whatsappUrl = useMemo(() => {
     const phone = String(customer?.phone ?? "").replace(/\D/g, "");
-    const message = encodeURIComponent(`La Bajadita Barber Shop\nTicket atencion ${id}\nTotal S/ ${Number(ticket?.total ?? 0).toFixed(2)}`);
+    const message = encodeURIComponent(`La Bajadita Barber Shop\n${isProductSale ? "Ticket venta de productos" : "Ticket atencion"} ${id}\nTotal S/ ${Number(ticket?.total ?? 0).toFixed(2)}`);
     return phone ? `https://wa.me/51${phone}?text=${message}` : `https://wa.me/?text=${message}`;
-  }, [customer?.phone, id, ticket?.total]);
+  }, [customer?.phone, id, isProductSale, ticket?.total]);
 
   async function buildPdf() {
     if (!ticket) return null;
@@ -54,6 +55,7 @@ export function ServiceOrderTicket({ id }: { id: string }) {
       y += rows.length * 4;
     };
     line("LA BAJADITA BARBER SHOP", 11);
+    line(isProductSale ? "VENTA DE PRODUCTOS" : "TICKET DE ATENCION");
     line(branch?.name ?? "Sede");
     line(`Fecha: ${new Date(ticket.paid_at ?? ticket.created_at).toLocaleString("es-PE")}`);
     line(`Cliente: ${customer?.full_name ?? "Cliente"}`);
@@ -79,7 +81,7 @@ export function ServiceOrderTicket({ id }: { id: string }) {
       if (!document) return;
       const file = new File([document.output("blob")], `ticket-${id}.pdf`, { type: "application/pdf" });
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Ticket La Bajadita", text: `Ticket de atención ${id}` });
+        await navigator.share({ files: [file], title: "Ticket La Bajadita", text: `${isProductSale ? "Ticket de venta" : "Ticket de atencion"} ${id}` });
       } else {
         document.save(file.name);
         window.open(whatsappUrl, "_blank", "noopener,noreferrer");
@@ -106,6 +108,7 @@ export function ServiceOrderTicket({ id }: { id: string }) {
       <div className="mx-auto w-[80mm] rounded-lg bg-white p-4 font-mono text-[11px] text-black print:w-[80mm] print:rounded-none">
         <div className="text-center">
           <p className="text-sm font-bold">LA BAJADITA BARBER SHOP</p>
+          <p className="font-bold">{isProductSale ? "VENTA DE PRODUCTOS" : "TICKET DE ATENCION"}</p>
           <p>{branch?.name ?? "Sede"}</p>
           <p>{branch?.address ?? ""}</p>
           <p>{branch?.phone ?? ""}</p>

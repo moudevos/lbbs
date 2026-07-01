@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
   const scope = resolveBranchScope(context.employee, branchId);
   if (context.employee.role === "admin" && scope.mode === "branch") query = query.eq("branch_id", scope.branchId);
   if (role) query = query.eq("role", role);
-  if (q) query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
+  if (q) {
+    const textFilters = `code.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%,nickname.ilike.%${q}%,specialty.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`;
+    const normalizedRole = normalizeEmployeeRoleSearch(q);
+    query = normalizedRole ? query.or(`${textFilters},role.eq.${normalizedRole}`) : query.or(textFilters);
+  }
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const employees = await Promise.all((data ?? []).map(async (employee) => ({
@@ -35,6 +39,12 @@ export async function GET(request: NextRequest) {
     })
   })));
   return NextResponse.json({ employees });
+}
+
+function normalizeEmployeeRoleSearch(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "admin" || normalized === "recepcion" || normalized === "barbero") return normalized;
+  return "";
 }
 
 export async function POST(request: NextRequest) {

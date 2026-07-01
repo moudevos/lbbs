@@ -46,14 +46,18 @@ export async function POST(request: NextRequest) {
     for (const payment of order.payment_details ?? []) totals[payment.method] = (totals[payment.method] ?? 0) + Number(payment.amount ?? 0);
   }
   const totalPaid = paid.reduce((sum: number, item: any) => sum + Number(item.total ?? 0), 0);
-  const expectedCash = totals.efectivo ?? 0;
+  const expectedByMethod = bucketPaymentTotals(totals);
+  const expectedCash = expectedByMethod.cash;
+  const countedByMethod = normalizeCountedByMethod(body.countedByMethod, Number(body.countedCash ?? 0));
+  const countedTotal = sumCounted(countedByMethod);
+  const expectedTotal = sumCounted(expectedByMethod);
   const countedCash = Number(body.countedCash ?? 0);
   const payload = {
     branch_id: branchId, closure_date: date, status: "closed", closed_at: new Date().toISOString(),
     closed_by: context.employee.employeeId, expected_cash: expectedCash, counted_cash: countedCash,
-    difference: countedCash - expectedCash, total_paid: totalPaid,
+    difference: countedTotal - expectedTotal, total_paid: totalPaid,
     total_voided: voided.reduce((sum: number, item: any) => sum + Number(item.total ?? 0), 0),
-    total_by_method: totals, notes: body.notes || null
+    total_by_method: { raw: totals, expected: expectedByMethod, counted: countedByMethod }, notes: body.notes || null
   };
   const { data: closure, error: closeError } = await context.admin
     .from("cash_closures").upsert(payload, { onConflict: "branch_id,closure_date" }).select("id").single();
@@ -73,4 +77,30 @@ export async function POST(request: NextRequest) {
     eventType: "status_change", tableName: "cash_closures", recordId: closure.id, newData: { event: "cash_closed", ...payload }
   });
   return NextResponse.json({ ok: true, closureId: closure.id });
+}
+
+function bucketPaymentTotals(totals: Record<string, number>) {
+  return {
+    cash: round(totals.efectivo ?? 0),
+    card: round(totals.tarjeta ?? 0),
+    qr: round((totals.yape ?? 0) + (totals.plin ?? 0) + (totals.qr ?? 0)),
+    transfer: round(totals.transferencia ?? 0)
+  };
+}
+
+function normalizeCountedByMethod(input: any, fallbackCash: number) {
+  return {
+    cash: round(input?.cash ?? fallbackCash),
+    card: round(input?.card ?? 0),
+    qr: round(input?.qr ?? 0),
+    transfer: round(input?.transfer ?? 0)
+  };
+}
+
+function sumCounted(input: Record<string, number>) {
+  return round(Object.values(input).reduce((sum, value) => sum + Number(value ?? 0), 0));
+}
+
+function round(value: unknown) {
+  return Math.round(Number(value ?? 0) * 100) / 100;
 }
