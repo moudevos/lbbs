@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { showError } from "@/lib/ui/swal";
+import { showError, showSuccess, showTextPrompt } from "@/lib/ui/swal";
 
 type Metrics = { availableClients: number; redeemedRewards: number; rewardCost: number; averageProgress: number; pendingRisk: number };
 type RewardRow = { id: string; name: string; phone: string; branchName?: string; totalVisits: number; progress: number; availableRewards: number; redeemedRewards: number; lastVisitAt: string | null };
@@ -42,6 +42,23 @@ export function RewardsManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
 
+  async function grantInitialReward(row: RewardRow) {
+    const reason = await showTextPrompt(
+      "Asignar reward inicial",
+      `Cliente: ${row.name}. Usa esta opcion solo para migrar tarjeta fisica.`
+    );
+    if (!reason) return;
+    const response = await fetch(`/api/control/rewards/${row.id}/manual-grant`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason })
+    });
+    const data = await response.json();
+    if (!response.ok) return showError("No se pudo asignar reward", data.error ?? "Intenta nuevamente.");
+    await showSuccess("Reward inicial asignado", "El cliente ya puede canjearlo en una atencion valida.");
+    await load();
+  }
+
   const filtered = rows.filter((row) =>
     status === "all"
     || (status === "available" && row.availableRewards > 0)
@@ -60,12 +77,66 @@ export function RewardsManager() {
           <button className="rounded-lg bg-[var(--control-primary)] px-4 py-2 font-semibold text-[var(--control-primary-text)]" onClick={load}>{loading ? "Cargando..." : "Buscar"}</button>
         </div>
       </div>
-      {metrics ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Reward disponible" value={metrics.availableClients} /><Metric label="Canjeados" value={metrics.redeemedRewards} /><Metric label="Costo rewards" value={`S/ ${metrics.rewardCost.toFixed(2)}`} /><Metric label="Progreso promedio" value={`${metrics.averageProgress.toFixed(1)} / 6`} /><Metric label="Riesgo pendiente" value={`S/ ${metrics.pendingRisk.toFixed(2)}`} />
-      </div> : null}
+
+      {metrics ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Metric label="Reward disponible" value={metrics.availableClients} />
+          <Metric label="Canjeados" value={metrics.redeemedRewards} />
+          <Metric label="Costo rewards" value={`S/ ${metrics.rewardCost.toFixed(2)}`} />
+          <Metric label="Progreso promedio" value={`${metrics.averageProgress.toFixed(1)} / 6`} />
+          <Metric label="Riesgo pendiente" value={`S/ ${metrics.pendingRisk.toFixed(2)}`} />
+        </div>
+      ) : null}
+
       <section className="min-w-0 rounded-xl border border-[var(--control-border)] bg-[var(--control-surface)] p-4">
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="font-semibold">Clientes con rewards / progreso</h2><p className="text-xs text-[var(--control-muted)]">Cliente genérico excluido.</p></div><select className="control-input sm:w-52" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Todos</option><option value="available">Reward disponible</option><option value="progress">En progreso</option><option value="redeemed">Canjeados</option></select></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left text-sm"><thead className="text-xs uppercase text-[var(--control-muted)]"><tr><th className="p-2">Cliente</th><th className="p-2">Sede</th><th className="p-2">Visitas</th><th className="p-2">Progreso</th><th className="p-2">Disponibles</th><th className="p-2">Última visita</th><th className="p-2">Estado</th><th className="p-2">Acción</th></tr></thead><tbody>{filtered.map((row) => <tr key={row.id} className="border-t border-[var(--control-border)]"><td className="p-2"><strong>{row.name}</strong><p className="text-xs text-[var(--control-muted)]">{row.phone}</p></td><td className="p-2">{row.branchName ?? "Sin sede"}</td><td className="p-2">{row.totalVisits}</td><td className="p-2">{row.progress}/6</td><td className="p-2 font-semibold text-[var(--gold-soft)]">{row.availableRewards}</td><td className="p-2">{row.lastVisitAt ? new Date(row.lastVisitAt).toLocaleDateString("es-PE") : "Sin visitas"}</td><td className="p-2">{row.availableRewards > 0 ? "Reward disponible" : row.redeemedRewards > 0 && row.progress === 0 ? "Canjeado" : "En progreso"}</td><td className="p-2"><Link className="rounded-lg border border-[var(--control-border)] px-2 py-1" href={`/app/control/clientes?customer=${row.id}`}>Ver cliente</Link></td></tr>)}</tbody></table></div>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-semibold">Clientes con rewards / progreso</h2>
+            <p className="text-xs text-[var(--control-muted)]">Cliente generico excluido.</p>
+          </div>
+          <select className="control-input sm:w-52" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="all">Todos</option>
+            <option value="available">Reward disponible</option>
+            <option value="progress">En progreso</option>
+            <option value="redeemed">Canjeados</option>
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="text-xs uppercase text-[var(--control-muted)]">
+              <tr>
+                <th className="p-2">Cliente</th>
+                <th className="p-2">Sede</th>
+                <th className="p-2">Visitas</th>
+                <th className="p-2">Progreso</th>
+                <th className="p-2">Disponibles</th>
+                <th className="p-2">Ultima visita</th>
+                <th className="p-2">Estado</th>
+                <th className="p-2">Accion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((row) => (
+                <tr key={row.id} className="border-t border-[var(--control-border)]">
+                  <td className="p-2"><strong>{row.name}</strong><p className="text-xs text-[var(--control-muted)]">{row.phone}</p></td>
+                  <td className="p-2">{row.branchName ?? "Sin sede"}</td>
+                  <td className="p-2">{row.totalVisits}</td>
+                  <td className="p-2">{row.progress}/6</td>
+                  <td className="p-2 font-semibold text-[var(--gold-soft)]">{row.availableRewards}</td>
+                  <td className="p-2">{row.lastVisitAt ? new Date(row.lastVisitAt).toLocaleDateString("es-PE") : "Sin visitas"}</td>
+                  <td className="p-2">{row.availableRewards > 0 ? "Reward disponible" : row.redeemedRewards > 0 && row.progress === 0 ? "Canjeado" : "En progreso"}</td>
+                  <td className="p-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Link className="rounded-lg border border-[var(--control-border)] px-2 py-1" href={`/app/control/clientes?customer=${row.id}`}>Ver cliente</Link>
+                      <button className="rounded-lg border border-[var(--control-primary-border)] px-2 py-1 text-[var(--control-primary)]" onClick={() => grantInitialReward(row)}>Asignar inicial</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {!loading && filtered.length === 0 ? <p className="py-5 text-center text-sm text-[var(--control-muted)]">Sin clientes para los filtros seleccionados.</p> : null}
       </section>
     </section>

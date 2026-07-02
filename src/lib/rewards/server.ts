@@ -5,6 +5,7 @@ import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
 type AdminClient = SupabaseClient<any, "public", any>;
 export const VISITS_PER_REWARD = 6;
 export const REWARD_BARBER_EARNING = 10;
+export const CLASSIC_CUT_REWARD_PRICE = 30;
 
 export async function syncRewardAccount(admin: AdminClient, customerId: string) {
   const { data: customer } = await admin.from("customers").select("phone,normalized_phone").eq("id", customerId).maybeSingle();
@@ -26,10 +27,16 @@ export async function syncRewardAccount(admin: AdminClient, customerId: string) 
     .select("status")
     .eq("customer_id", customerId)
     .in("status", ["applied", "redeemed"]);
+  const { data: manualGrants } = await admin
+    .from("customer_reward_ledger")
+    .select("reward_delta")
+    .eq("customer_id", customerId)
+    .eq("event_type", "reward_manual_grant");
   const redeemedRewards = (redemptions ?? []).filter((row) => row.status === "redeemed").length;
   const reservedRewards = (redemptions ?? []).filter((row) => row.status === "applied").length;
   const earnedRewards = Math.floor(eligibleVisitCount / VISITS_PER_REWARD);
-  const availableRewards = Math.max(earnedRewards - redeemedRewards - reservedRewards, 0);
+  const manualRewards = (manualGrants ?? []).reduce((sum, row) => sum + Math.max(Number(row.reward_delta ?? 0), 0), 0);
+  const availableRewards = Math.max(earnedRewards + manualRewards - redeemedRewards - reservedRewards, 0);
   await admin.from("customer_reward_accounts").upsert({
     customer_id: customerId,
     eligible_visit_count: eligibleVisitCount,
@@ -38,7 +45,36 @@ export async function syncRewardAccount(admin: AdminClient, customerId: string) 
     available_rewards: availableRewards,
     updated_at: new Date().toISOString()
   }, { onConflict: "customer_id" });
-  return { eligibleVisitCount, earnedRewards, redeemedRewards, availableRewards, progress: eligibleVisitCount % VISITS_PER_REWARD };
+  return { eligibleVisitCount, earnedRewards, manualRewards, redeemedRewards, availableRewards, progress: eligibleVisitCount % VISITS_PER_REWARD };
+}
+
+export async function grantInitialReward(admin: AdminClient, customerId: string, createdBy: string | null, reason: string) {
+  const cleanReason = reason.trim();
+  if (!cleanReason) return { error: "Motivo requerido" };
+  const { data: customer, error: customerError } = await admin
+    .from("customers")
+    .select("id,phone,normalized_phone,branch_id")
+    .eq("id", customerId)
+    .maybeSingle();
+  if (customerError || !customer) return { error: customerError?.message ?? "Cliente no encontrado" };
+  if (isGenericCustomerPhone(customer.normalized_phone ?? customer.phone)) return { error: "Cliente generico no participa en rewards." };
+
+  const { error } = await admin.from("customer_reward_ledger").insert({
+    customer_id: customer.id,
+    event_type: "reward_manual_grant",
+    branch_id: customer.branch_id,
+    points_delta: 0,
+    reward_delta: 1,
+    cycle_number: 1,
+    description: `Migracion tarjeta fisica: ${cleanReason}`,
+    created_by: createdBy
+  });
+  if (error) {
+    if (error.code === "23505") return { error: "Este cliente ya tiene una asignacion inicial de reward." };
+    return { error: error.message };
+  }
+  const account = await syncRewardAccount(admin, customer.id);
+  return { ok: true, account };
 }
 
 export async function countServiceOrderVisitOnce(admin: AdminClient, serviceOrderId: string, createdBy?: string | null) {
@@ -79,7 +115,7 @@ export async function countServiceOrderVisitOnce(admin: AdminClient, serviceOrde
 
 export async function applyClassicCutReward(admin: AdminClient, serviceOrderId: string, createdBy?: string | null) {
   const { data: order } = await admin.from("service_orders")
-    .select("id,customer_id,branch_id,employee_id,status,total,discount_amount,reward_redemption_id,customers(phone,normalized_phone),service_order_items(id,item_type,name,description,subtotal,barber_id)")
+    .select("id,customer_id,branch_id,employee_id,status,total,discount_amount,reward_redemption_id,customers(phone,normalized_phone),service_order_items(id,item_type,name,description,subtotal,amount,unit_price,original_unit_price,barber_id)")
     .eq("id", serviceOrderId).maybeSingle();
   if (!order?.customer_id) return { error: "Atencion o cliente no encontrado" };
   const rewardCustomer = Array.isArray(order.customers) ? order.customers[0] : order.customers;
@@ -91,6 +127,8 @@ export async function applyClassicCutReward(admin: AdminClient, serviceOrderId: 
     return ["service", "custom_service"].includes(item.item_type) && text.includes("corte") && text.includes("clasico");
   });
   if (!classic) return { error: "Reward disponible solo para Corte Clasico" };
+  const classicPrice = Number(classic.original_unit_price ?? classic.unit_price ?? classic.subtotal ?? classic.amount ?? 0);
+  if (Math.abs(classicPrice - CLASSIC_CUT_REWARD_PRICE) > 0.01) return { error: "Reward disponible solo para Corte Clasico de S/ 30.00" };
   const account = await syncRewardAccount(admin, order.customer_id);
   if (account.availableRewards < 1) return { error: "Cliente sin reward disponible" };
   const rewardValue = Number(classic.subtotal ?? 0);
