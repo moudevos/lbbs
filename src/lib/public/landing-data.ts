@@ -140,6 +140,7 @@ async function getServices(admin: ReturnType<typeof createAdminClient>) {
     .from("services")
     .select("id,name,description,duration_minutes,price,branch_id,branches!inner(name,code)")
     .eq("is_active", true)
+    .eq("branches.code", "SED-002")
     .order("name");
 
   if (error) return [];

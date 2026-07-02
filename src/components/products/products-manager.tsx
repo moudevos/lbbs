@@ -61,7 +61,7 @@ export function ProductsManager() {
   }, [query]);
 
   function blank(): Product {
-    return { name: "", description: "", category: "snack", salePrice: 0, cost: "", stockCurrent: 0, stockMinimum: 0, branchId: "", countsForSellerCredit: false, sellerCreditAmount: 0 };
+    return { name: "", description: "", category: "snack", salePrice: 0, cost: "", stockCurrent: 0, stockMinimum: 0, branchId: "", tracksStock: true, courtesyEnabled: false, courtesyRole: "", courtesyLabel: "", countsForSellerCredit: false, sellerCreditAmount: 0 };
   }
 
   function fromRow(row: Product): Product {
@@ -75,6 +75,10 @@ export function ProductsManager() {
       stockCurrent: row.stock_current ?? 0,
       stockMinimum: row.stock_minimum ?? 0,
       branchId: row.branch_id ?? "",
+      tracksStock: Boolean(row.tracks_stock ?? true),
+      courtesyEnabled: Boolean(row.courtesy_enabled),
+      courtesyRole: row.courtesy_role ?? "",
+      courtesyLabel: row.courtesy_label ?? "",
       countsForSellerCredit: Boolean(row.counts_for_seller_credit),
       sellerCreditAmount: row.seller_credit_amount ?? 2
     };
@@ -195,8 +199,12 @@ function ProductFormModal({
               const category = event.target.value;
               setEditing({ ...editing, category, countsForSellerCredit: category === "barber_product", sellerCreditAmount: category === "barber_product" ? 2 : 0 });
             }}>
-              <option value="snack">Snack / bebida</option>
               <option value="barber_product">Producto de barberia</option>
+              <option value="beverage">Bebida</option>
+              <option value="snack">Snack</option>
+              <option value="cafeteria">Cafeteria</option>
+              <option value="supply">Insumo</option>
+              <option value="other">Otro</option>
             </select>
           </label>
           <Input label="Descripcion" value={editing.description} onChange={(value) => setEditing({ ...editing, description: value })} />
@@ -204,6 +212,31 @@ function ProductFormModal({
           <Input label="Costo opcional" type="number" value={editing.cost} onChange={(value) => setEditing({ ...editing, cost: value })} />
           <Input label="Stock actual" type="number" value={editing.stockCurrent} onChange={(value) => setEditing({ ...editing, stockCurrent: value })} />
           <Input label="Stock minimo" type="number" value={editing.stockMinimum} onChange={(value) => setEditing({ ...editing, stockMinimum: value })} />
+          <div className="md:col-span-2 rounded-xl border border-[var(--border-soft)] bg-black/20 p-3">
+            <p className="text-sm font-semibold text-[var(--gold-soft)]">Configuracion operativa</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-black/25 px-3 py-2 text-sm text-[var(--text-muted)]">
+                <input type="checkbox" checked={Boolean(editing.tracksStock)} onChange={(event) => setEditing({ ...editing, tracksStock: event.target.checked })} />
+                Controla stock
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-black/25 px-3 py-2 text-sm text-[var(--text-muted)]">
+                <input type="checkbox" checked={Boolean(editing.courtesyEnabled)} onChange={(event) => setEditing({ ...editing, courtesyEnabled: event.target.checked, courtesyRole: event.target.checked ? editing.courtesyRole : "", courtesyLabel: event.target.checked ? editing.courtesyLabel : "" })} />
+                Disponible como cortesia
+              </label>
+              <label className="text-sm text-[var(--text-muted)]">Tipo de cortesia
+                <select className="mt-2 w-full rounded-lg border border-[var(--border-soft)] bg-black px-3 py-2 text-white" value={editing.courtesyRole ?? ""} disabled={!editing.courtesyEnabled} onChange={(event) => setEditing({ ...editing, courtesyRole: event.target.value })}>
+                  <option value="">Ninguno</option>
+                  <option value="water">Agua</option>
+                  <option value="soda">Gaseosa</option>
+                  <option value="frozen">Frozen</option>
+                  <option value="coffee">Cafe</option>
+                  <option value="cappuccino">Capuchino</option>
+                  <option value="keke">Keke</option>
+                </select>
+              </label>
+              <Input label="Etiqueta de cortesia" value={editing.courtesyLabel} onChange={(value) => setEditing({ ...editing, courtesyLabel: value })} />
+            </div>
+          </div>
           <label className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-black/25 px-3 py-2 text-sm text-[var(--text-muted)]">
             <input type="checkbox" checked={Boolean(editing.countsForSellerCredit)} onChange={(event) => setEditing({ ...editing, countsForSellerCredit: event.target.checked })} />
             Cuenta credito vendedor
@@ -233,6 +266,8 @@ function movementLabel(movement: Product) {
     ajuste_negativo: "Ajuste negativo",
     venta: "Salida por venta",
     anulacion_venta: "Anulacion de venta",
+    reposicion_caja: "Reposicion con caja",
+    anulacion_reposicion_caja: "Anulacion de reposicion",
     adjustment: "Ajuste",
     sale: "Salida por venta",
     void: "Anulacion"
@@ -332,10 +367,11 @@ function MovementsPanel({ action, onClose }: { action: { product: Product; stock
                         <p className="text-xs text-[var(--text-muted)]">{movement.previous_stock} {"->"} {movement.new_stock}</p>
                       </div>
                     </div>
-                    {(movement.reason || movement.reference) ? (
+                    {(movement.reason || movement.reference || movement.metadata?.amount) ? (
                       <div className="mt-2 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs text-[var(--text-muted)]">
                         {movement.reason ? <p>Motivo: {movement.reason}</p> : null}
                         {movement.reference ? <p>Referencia: {movement.reference}</p> : null}
+                        {movement.metadata?.amount ? <p>Monto caja: S/ {Number(movement.metadata.amount ?? 0).toFixed(2)} · Costo unitario: S/ {Number(movement.metadata.unit_cost ?? 0).toFixed(2)} · Metodo: {movement.metadata.payment_method}</p> : null}
                       </div>
                     ) : null}
                   </article>

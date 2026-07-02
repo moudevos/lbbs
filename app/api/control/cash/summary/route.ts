@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { buildAnalyticsPayload, getAnalyticsDataset, normalizeAnalyticsFilters } from "@/lib/analytics/analytics-calculations";
+import { applyOperationalOutsToExpected, fetchActiveOperationalOuts, summarizeOperationalMovements } from "@/lib/cash/operational-movements";
 
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
@@ -22,13 +23,18 @@ export async function GET(request: NextRequest) {
   const summary = payload.summary;
   const pendingTickets = result.data.orders.filter((order: any) => ["registrado", "pendiente_pago"].includes(order.status));
   const byMethod = payload.paymentMethods;
+  const outsResult = await fetchActiveOperationalOuts(context.admin, { branchId: filters.branchId, from: filters.from, to: filters.to });
+  if (outsResult.error) return NextResponse.json({ error: outsResult.error.message }, { status: 500 });
+  const operationalOuts = summarizeOperationalMovements(outsResult.data);
+  const expectedPaymentMethods = applyOperationalOutsToExpected(summary.paymentMethods, operationalOuts);
 
   return NextResponse.json({
     ok: true,
     date: filters.from,
     branchId: filters.branchId,
-    summary,
-    paymentMethods: summary.paymentMethods,
+    summary: { ...summary, paymentMethods: expectedPaymentMethods, operationalOuts },
+    paymentMethods: expectedPaymentMethods,
+    operationalOuts,
     movements: payload.movements,
     grossTotal: summary.totalSold + pendingTickets.reduce((sum: number, order: any) => sum + Number(order.total ?? 0), 0),
     totalSold: summary.totalCollected,

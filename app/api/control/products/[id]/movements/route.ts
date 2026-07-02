@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   let query = context.admin
     .from("product_stock_movements")
-    .select("id,branch_id,movement_type,movement_kind,quantity,quantity_delta,previous_stock,new_stock,reason,reference,created_at,branches(name)")
+    .select("id,branch_id,movement_type,movement_kind,quantity,quantity_delta,previous_stock,new_stock,reason,reference,metadata,created_at,branches(name)")
     .eq("product_id", params.id)
     .order("created_at", { ascending: false })
     .limit(limit);

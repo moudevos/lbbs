@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { writeAuditLog } from "@/lib/audit";
+import { applyOperationalOutsToExpected, fetchActiveOperationalOuts, summarizeOperationalMovements } from "@/lib/cash/operational-movements";
 
 export async function GET(request: NextRequest) {
   const context = await requireEmployee();
@@ -46,7 +47,11 @@ export async function POST(request: NextRequest) {
     for (const payment of order.payment_details ?? []) totals[payment.method] = (totals[payment.method] ?? 0) + Number(payment.amount ?? 0);
   }
   const totalPaid = paid.reduce((sum: number, item: any) => sum + Number(item.total ?? 0), 0);
-  const expectedByMethod = bucketPaymentTotals(totals);
+  const rawExpectedByMethod = bucketPaymentTotals(totals);
+  const outsResult = await fetchActiveOperationalOuts(context.admin, { branchId, date });
+  if (outsResult.error) return NextResponse.json({ error: outsResult.error.message }, { status: 500 });
+  const operationalOuts = summarizeOperationalMovements(outsResult.data);
+  const expectedByMethod = applyOperationalOutsToExpected(rawExpectedByMethod, operationalOuts);
   const expectedCash = expectedByMethod.cash;
   const countedByMethod = normalizeCountedByMethod(body.countedByMethod, Number(body.countedCash ?? 0));
   const countedTotal = sumCounted(countedByMethod);
@@ -57,7 +62,7 @@ export async function POST(request: NextRequest) {
     closed_by: context.employee.employeeId, expected_cash: expectedCash, counted_cash: countedCash,
     difference: countedTotal - expectedTotal, total_paid: totalPaid,
     total_voided: voided.reduce((sum: number, item: any) => sum + Number(item.total ?? 0), 0),
-    total_by_method: { raw: totals, expected: expectedByMethod, counted: countedByMethod }, notes: body.notes || null
+    total_by_method: { raw: totals, collected: rawExpectedByMethod, operational_outs: operationalOuts.byMethod, expected: expectedByMethod, counted: countedByMethod }, notes: body.notes || null
   };
   const { data: closure, error: closeError } = await context.admin
     .from("cash_closures").upsert(payload, { onConflict: "branch_id,closure_date" }).select("id").single();
@@ -72,6 +77,13 @@ export async function POST(request: NextRequest) {
     }));
   });
   if (snapshots.length) await context.admin.from("cash_closure_items").insert(snapshots);
+  await context.admin
+    .from("cash_operational_movements")
+    .update({ related_cash_closure_id: closure.id })
+    .eq("branch_id", branchId)
+    .eq("status", "active")
+    .gte("occurred_at", `${date}T00:00:00-05:00`)
+    .lte("occurred_at", `${date}T23:59:59-05:00`);
   await writeAuditLog(context.admin, {
     actorUserId: context.employee.userId, actorRole: context.employee.role, actorBranchId: context.employee.branchId,
     eventType: "status_change", tableName: "cash_closures", recordId: closure.id, newData: { event: "cash_closed", ...payload }

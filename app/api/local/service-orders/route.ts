@@ -6,6 +6,7 @@ import { createServiceOrder, missingAttentionItemsMessage, normalizeMoney } from
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toPeruDate } from "@/lib/datetime/peru-time";
 import { isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
+import { validateAndApplyCourtesy } from "@/lib/courtesies/resolve-courtesy-products";
 
 function hash(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -100,7 +101,21 @@ export async function POST(request: NextRequest) {
     await auth.admin.from("service_orders").update({ subtotal, total, balance: total }).eq("id", result.serviceOrderId);
   }
 
-  for (const courtesyType of Array.isArray(body.courtesyItems) ? body.courtesyItems : []) {
+  for (const courtesyEntry of Array.isArray(body.courtesyItems) ? body.courtesyItems : []) {
+    if (typeof courtesyEntry === "object" && courtesyEntry?.courtesy) {
+      const courtesy = await validateAndApplyCourtesy({
+        admin: auth.admin,
+        branchId: auth.device.branch_id,
+        serviceOrderId: result.serviceOrderId,
+        selection: courtesyEntry.courtesy,
+        servicePrice: normalizeMoney(courtesyEntry.amount ?? body.total),
+        orderTotal: normalizeMoney(courtesyEntry.amount ?? body.total)
+      });
+      if (courtesy.error) return NextResponse.json({ error: courtesy.error }, { status: 400 });
+      continue;
+    }
+    const courtesyType = String(courtesyEntry ?? "").trim();
+    if (!courtesyType) continue;
     await auth.admin.from("service_order_items").insert({
       service_order_id: result.serviceOrderId,
       item_type: "courtesy",

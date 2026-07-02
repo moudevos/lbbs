@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { writeAuditLog } from "@/lib/audit";
 import { voidProductionForOrder } from "@/lib/production/server";
+import { restoreCourtesyStockForOrder } from "@/lib/courtesies/resolve-courtesy-products";
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const context = await requireEmployee();
@@ -54,6 +55,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       actor_user_id: context.employee.userId
     });
   }
+
+  const courtesyRestore = await restoreCourtesyStockForOrder(context.admin, params.id, order.branch_id, context.employee.userId, body.reason ?? "Atencion anulada");
+  if (courtesyRestore.error) return NextResponse.json({ error: courtesyRestore.error }, { status: 500 });
 
   const { error } = await context.admin
     .from("service_orders")

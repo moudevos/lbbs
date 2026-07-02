@@ -31,7 +31,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     .maybeSingle();
   if (itemError || !item) return NextResponse.json({ error: itemError?.message ?? "Item no encontrado" }, { status: 404 });
 
-  if (item.item_type === "product" && item.product_id) {
+  if (["product", "courtesy"].includes(item.item_type) && item.product_id) {
     const { data: branchStock } = await context.admin
       .from("product_branch_stock")
       .select("stock_current")
@@ -51,12 +51,12 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
       branch_id: order.branch_id,
       service_order_id: params.id,
       movement_type: "void",
-      movement_kind: "anulacion_venta",
+      movement_kind: item.item_type === "courtesy" ? "anulacion_cortesia" : "anulacion_venta",
       quantity,
       quantity_delta: quantity,
       previous_stock: previousStock,
       new_stock: newStock,
-      reason: "Item eliminado antes de pago",
+      reason: item.item_type === "courtesy" ? "Cortesia eliminada antes de pago" : "Item eliminado antes de pago",
       created_by: context.employee.userId,
       actor_user_id: context.employee.userId
     });

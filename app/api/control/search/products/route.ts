@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const term = escapeLike(result.q);
   let query = result.context.admin
     .from("products")
-    .select("id,sku,name,category,sale_price,branch_id,is_active,counts_for_seller_credit,seller_credit_amount,product_branch_stock(branch_id,stock_current)")
+    .select("id,sku,name,category,sale_price,branch_id,is_active,tracks_stock,courtesy_enabled,courtesy_role,counts_for_seller_credit,seller_credit_amount,product_branch_stock(branch_id,stock_current)")
     .eq("is_active", true)
     .or(`name.ilike.%${term}%,sku.ilike.%${term}%,category.ilike.%${term}%`)
     .order("name")
@@ -26,6 +26,9 @@ export async function GET(request: NextRequest) {
         salePrice: Number(row.sale_price ?? 0),
         stock,
         branchId: row.branch_id,
+        tracksStock: Boolean(row.tracks_stock ?? true),
+        courtesyEnabled: Boolean(row.courtesy_enabled),
+        courtesyRole: row.courtesy_role,
         countsForSellerCredit: Boolean(row.counts_for_seller_credit || row.category === "barber_product"),
         sellerCreditAmount: Number(row.seller_credit_amount ?? 0)
       }

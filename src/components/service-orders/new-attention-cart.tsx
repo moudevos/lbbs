@@ -8,9 +8,10 @@ import type { BarberOption, BranchOption, ServiceOption } from "@/lib/reservatio
 import { ControlCombobox } from "@/components/ui/control-combobox";
 import { GENERIC_CUSTOMER_PHONE, isGenericCustomerPhone } from "@/lib/customers/is-generic-customer";
 import { createClientId } from "@/lib/browser/create-client-id";
+import { CourtesySelector, type CourtesySelection } from "@/components/courtesies/courtesy-selector";
 
 type Product = { id: string; name: string; sale_price: number; branch_id: string | null; product_branch_stock?: { branch_id: string; stock_current: number }[] };
-type ServiceDraft = { key: string; serviceId: string; name: string; amount: number; description: string; courtesy: string };
+type ServiceDraft = { key: string; serviceId: string; name: string; amount: number; description: string; courtesy: CourtesySelection | null };
 type ProductDraft = { key: string; productId: string; name: string; quantity: number; unitPrice: number; soldByEmployeeId: string | null };
 
 export function NewAttentionCart() {
@@ -25,7 +26,7 @@ export function NewAttentionCart() {
   const [customDescription, setCustomDescription] = useState("");
   const [customAmount, setCustomAmount] = useState("");
   const [customMode, setCustomMode] = useState(false);
-  const [customCourtesy, setCustomCourtesy] = useState("");
+  const [customCourtesy, setCustomCourtesy] = useState<CourtesySelection | null>(null);
   const [services, setServices] = useState<ServiceDraft[]>([]);
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -78,7 +79,7 @@ export function NewAttentionCart() {
   function addService() {
     if (!selectedService) return;
     const amount = Number(selectedService.price ?? 0);
-    setServices((current) => [...current, { key: createClientId(), serviceId: selectedService.id, name: selectedService.name, amount, description: selectedService.name, courtesy: "" }]);
+    setServices((current) => [...current, { key: createClientId(), serviceId: selectedService.id, name: selectedService.name, amount, description: selectedService.name, courtesy: null }]);
     setServiceId("");
   }
 
@@ -122,12 +123,12 @@ export function NewAttentionCart() {
         if (!itemResponse.ok) return showError("Atencion creada parcialmente", (await itemResponse.json()).error);
       }
       const courtesyItems = customMode
-        ? (customCourtesy ? [{ courtesy: customCourtesy }] : [])
-        : services.filter((entry) => entry.courtesy);
+        ? (customCourtesy ? [{ courtesy: customCourtesy, amount: Number(customAmount || 0) }] : [])
+        : services.filter((entry) => entry.courtesy).map((entry) => ({ courtesy: entry.courtesy, amount: entry.amount }));
       for (const item of courtesyItems) {
         await fetch(`/api/control/service-orders/${data.serviceOrderId}/items`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itemType: "courtesy", courtesyType: item.courtesy })
+          body: JSON.stringify({ itemType: "courtesy", courtesy: item.courtesy, servicePrice: item.amount })
         });
       }
       await showSuccess("Atencion registrada");
@@ -151,9 +152,9 @@ export function NewAttentionCart() {
           </Panel>
           <Panel title="3. Servicios">
             <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_auto]"><ControlCombobox value={serviceId} placeholder="Buscar servicio" options={branchServices.map((item) => ({ value: item.id, label: `${item.name} · S/ ${Number(item.price ?? 0).toFixed(2)}`, searchText: item.sku }))} onChange={setServiceId} /><button className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--control-primary)] px-4 py-2" onClick={addService}><Plus size={16} /> Agregar</button></div>
-            {services.map((item) => <div key={item.key} className="grid gap-2 rounded-lg border border-[var(--border-soft)] p-3 md:grid-cols-[1fr_220px_auto]"><div><strong>{item.name}</strong><p className="text-xs text-[var(--text-muted)]">S/ {item.amount.toFixed(2)}</p></div>{!customMode ? <select className="control-input" value={item.courtesy} onChange={(event) => setServices((current) => current.map((entry) => entry.key === item.key ? { ...entry, courtesy: event.target.value } : entry))}><option value="">Sin cortesia</option>{courtesyOptions(item.amount).map((value) => <option key={value} value={value}>{value}</option>)}</select> : <span className="text-xs text-[var(--control-muted)]">Referencia interna</span>}<button onClick={() => setServices((current) => current.filter((entry) => entry.key !== item.key))}><Trash2 size={16} /></button></div>)}
+            {services.map((item) => <div key={item.key} className="grid gap-2 rounded-lg border border-[var(--border-soft)] p-3 md:grid-cols-[1fr_260px_auto]"><div><strong>{item.name}</strong><p className="text-xs text-[var(--text-muted)]">S/ {item.amount.toFixed(2)}</p></div>{!customMode ? <CourtesySelector branchId={form.branchId} amount={item.amount} value={item.courtesy} onChange={(value) => setServices((current) => current.map((entry) => entry.key === item.key ? { ...entry, courtesy: value } : entry))} /> : <span className="text-xs text-[var(--control-muted)]">Referencia interna</span>}<button onClick={() => setServices((current) => current.filter((entry) => entry.key !== item.key))}><Trash2 size={16} /></button></div>)}
             {services.length ? <label className="flex items-center gap-2 rounded-lg border border-[var(--control-border)] bg-[var(--control-surface-2)] px-3 py-2 text-sm"><input type="checkbox" checked={customMode} onChange={(event) => setCustomMode(event.target.checked)} /> Marcar como servicio personalizado</label> : null}
-            {customMode ? <div className="grid min-w-0 gap-3 rounded-xl border border-[var(--control-primary-border)] bg-[var(--control-primary-soft)] p-3 sm:grid-cols-2"><div className="sm:col-span-2"><p className="text-sm font-semibold text-[var(--control-primary)]">Personalizado</p><p className="text-xs text-[var(--control-muted)]">Agrupa los servicios seleccionados en un solo servicio con precio final manual.</p></div><input className="control-input" placeholder="Descripcion del personalizado" value={customDescription} onChange={(event) => setCustomDescription(event.target.value)} /><input className="control-input" type="number" placeholder="Precio total personalizado" value={customAmount} onChange={(event) => setCustomAmount(event.target.value)} /><div className="sm:col-span-2"><ControlCombobox value={customCourtesy} placeholder="Cortesia del personalizado" options={courtesyOptions(Number(customAmount || 0)).map((label) => ({ value: label, label }))} onChange={setCustomCourtesy} /></div></div> : null}
+            {customMode ? <div className="grid min-w-0 gap-3 rounded-xl border border-[var(--control-primary-border)] bg-[var(--control-primary-soft)] p-3 sm:grid-cols-2"><div className="sm:col-span-2"><p className="text-sm font-semibold text-[var(--control-primary)]">Personalizado</p><p className="text-xs text-[var(--control-muted)]">Agrupa los servicios seleccionados en un solo servicio con precio final manual.</p></div><input className="control-input" placeholder="Descripcion del personalizado" value={customDescription} onChange={(event) => setCustomDescription(event.target.value)} /><input className="control-input" type="number" placeholder="Precio total personalizado" value={customAmount} onChange={(event) => setCustomAmount(event.target.value)} /><div className="sm:col-span-2"><CourtesySelector branchId={form.branchId} amount={Number(customAmount || 0)} value={customCourtesy} onChange={setCustomCourtesy} /></div></div> : null}
           </Panel>
           <Panel title="4. Productos">
             <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_100px_minmax(0,1fr)_auto]"><ControlCombobox value={productId} placeholder="Buscar producto" options={branchProducts.map((item) => ({ value: item.id, label: item.name }))} onChange={setProductId} /><input className="control-input" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} /><ControlCombobox value={sellerId} placeholder="Recepcion" options={branchBarbers.map((item) => ({ value: item.id, label: item.name }))} onChange={setSellerId} /><button className="rounded-lg border border-[var(--control-primary)] px-4 py-2" onClick={addProduct}>Agregar</button></div>
@@ -165,10 +166,6 @@ export function NewAttentionCart() {
       </div>
     </section>
   );
-}
-
-function courtesyOptions(amount: number) {
-  return amount > 60 ? ["Frozen de fruta", "Cafe americano + keke de platano", "Capuchino + keke de platano", "Gaseosa + keke de platano"] : ["Agua", "Gaseosa personal"];
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   let query = context.admin
     .from("products")
-    .select("id,sku,name,description,category,sale_price,cost,cost_price,branch_id,is_active,counts_for_seller_credit,seller_credit_amount,branches(name),product_branch_stock(id,branch_id,stock_current,stock_minimum,updated_at,branches(name))")
+    .select("id,sku,name,description,category,sale_price,cost,cost_price,branch_id,is_active,tracks_stock,courtesy_enabled,courtesy_role,courtesy_label,counts_for_seller_credit,seller_credit_amount,branches(name),product_branch_stock(id,branch_id,stock_current,stock_minimum,updated_at,branches(name))")
     .order("sku");
 
   if (context.employee.role === "admin") {
@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
   if (!context.ok) return context.error;
   const body = await request.json();
   if (!body.name) return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
+  if (body.courtesyEnabled && !body.courtesyRole) return NextResponse.json({ error: "Tipo de cortesia requerido" }, { status: 400 });
 
   const sku = await nextCode(context.admin, "products", "sku", "PROD", 4);
   const payload = {
@@ -57,6 +58,10 @@ export async function POST(request: NextRequest) {
     cost: body.cost === "" || body.cost == null ? null : Number(body.cost),
     cost_price: body.cost === "" || body.cost == null ? 0 : Number(body.cost),
     branch_id: body.branchId || null,
+    tracks_stock: Boolean(body.tracksStock ?? true),
+    courtesy_enabled: Boolean(body.courtesyEnabled && body.courtesyRole),
+    courtesy_role: body.courtesyEnabled && body.courtesyRole ? body.courtesyRole : null,
+    courtesy_label: body.courtesyEnabled ? body.courtesyLabel || body.name : null,
     counts_for_seller_credit: Boolean(body.countsForSellerCredit),
     seller_credit_amount: Number(body.sellerCreditAmount ?? 2),
     is_active: true

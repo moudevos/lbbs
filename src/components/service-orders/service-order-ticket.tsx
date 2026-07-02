@@ -36,6 +36,7 @@ export function ServiceOrderTicket({ id }: { id: string }) {
   const barber = first(ticket?.employees);
   const isProductSale = ticket?.order_type === "product_sale";
   const items = ticket?.service_order_items ?? [];
+  const ticketItems = groupTicketItems(items);
   const payments = ticket?.payment_details ?? [];
   const whatsappUrl = useMemo(() => {
     const phone = String(customer?.phone ?? "").replace(/\D/g, "");
@@ -61,7 +62,10 @@ export function ServiceOrderTicket({ id }: { id: string }) {
     line(`Cliente: ${customer?.full_name ?? "Cliente"}`);
     line(`Barbero: ${barber ? `${barber.first_name ?? ""} ${barber.last_name ?? ""}`.trim() : "Sin barbero"}`);
     line("--------------------------------");
-    items.forEach((item: any) => line(`${item.name ?? item.description} x${Number(item.quantity ?? 1)}  S/ ${Number(item.subtotal ?? item.amount ?? 0).toFixed(2)}`));
+    ticketItems.forEach((item: any) => {
+      line(`${item.name ?? item.description} x${Number(item.quantity ?? 1)}  S/ ${Number(item.subtotal ?? item.amount ?? 0).toFixed(2)}`);
+      (item.children ?? []).forEach((child: any) => line(`  - ${child.name}`, 8));
+    });
     line("--------------------------------");
     line(`Subtotal: S/ ${Number(ticket.subtotal ?? 0).toFixed(2)}`);
     line(`Descuentos: S/ ${Number(ticket.discount_amount ?? 0).toFixed(2)}`);
@@ -119,13 +123,14 @@ export function ServiceOrderTicket({ id }: { id: string }) {
         <p>Barbero: {barber ? `${barber.first_name ?? ""} ${barber.last_name ?? ""}`.trim() : "Sin barbero"}</p>
         <p>Ticket: {ticket.id}</p>
         <div className="my-3 border-t border-dashed border-black" />
-        {items.map((item: any) => (
+        {ticketItems.map((item: any) => (
           <div key={item.id} className="mb-2">
             <div className="flex justify-between gap-2">
               <span>{item.name ?? item.description}</span>
               <span>S/ {Number(item.subtotal ?? item.amount ?? 0).toFixed(2)}</span>
             </div>
             <p>{Number(item.quantity ?? 1)} x S/ {Number(item.unit_price ?? item.amount ?? 0).toFixed(2)}</p>
+            {(item.children ?? []).map((child: any) => <p key={child.id} className="pl-2">- {child.name}</p>)}
           </div>
         ))}
         <div className="my-3 border-t border-dashed border-black" />
@@ -146,4 +151,33 @@ export function ServiceOrderTicket({ id }: { id: string }) {
 
 function Row({ label, value, strong }: { label: string; value: unknown; strong?: boolean }) {
   return <div className={`flex justify-between gap-2 ${strong ? "text-sm font-bold" : ""}`}><span>{label}</span><span>S/ {Number(value ?? 0).toFixed(2)}</span></div>;
+}
+
+function groupTicketItems(items: any[]) {
+  const grouped = new Map<string, any>();
+  const result: any[] = [];
+  for (const item of items) {
+    if (item.item_type === "courtesy" && item.courtesy_group_id) {
+      const existing = grouped.get(item.courtesy_group_id);
+      if (existing) {
+        existing.children.push(item);
+        continue;
+      }
+      const parent = {
+        ...item,
+        id: item.courtesy_group_id,
+        name: `Cortesia: ${item.courtesy_group_label ?? item.name}`,
+        quantity: 1,
+        unit_price: 0,
+        subtotal: 0,
+        amount: 0,
+        children: [item]
+      };
+      grouped.set(item.courtesy_group_id, parent);
+      result.push(parent);
+      continue;
+    }
+    result.push(item.item_type === "courtesy" ? { ...item, name: `Cortesia: ${item.name ?? item.description}` } : item);
+  }
+  return result;
 }

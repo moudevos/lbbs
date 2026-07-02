@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireEmployee } from "@/lib/control/api";
 import { writeAuditLog } from "@/lib/audit";
 import { resolveCustomerProductDiscount } from "@/lib/customers/customer-product-discount";
+import { validateAndApplyCourtesy } from "@/lib/courtesies/resolve-courtesy-products";
 
 function money(value: unknown) {
   return Math.round(Number(value ?? 0) * 100) / 100;
@@ -57,6 +58,28 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 
   if (body.itemType === "courtesy") {
+    if (body.courtesy) {
+      const courtesy = await validateAndApplyCourtesy({
+        admin: context.admin,
+        branchId: order.branch_id,
+        serviceOrderId: params.id,
+        employeeUserId: context.employee.userId,
+        selection: body.courtesy,
+        servicePrice: money(body.servicePrice ?? order.total),
+        orderTotal: money(body.orderTotal ?? body.servicePrice ?? order.total)
+      });
+      if (courtesy.error) return NextResponse.json({ error: courtesy.error }, { status: 400 });
+      await writeAuditLog(context.admin, {
+        actorUserId: context.employee.userId,
+        actorRole: context.employee.role,
+        actorBranchId: context.employee.branchId,
+        eventType: "update",
+        tableName: "service_order_items",
+        recordId: params.id,
+        newData: { event: "courtesy_selected", ...courtesy }
+      });
+      return NextResponse.json({ ok: true, courtesy });
+    }
     const courtesyType = String(body.courtesyType ?? "").trim();
     if (!courtesyType) return NextResponse.json({ error: "Cortesia requerida" }, { status: 400 });
     itemPayload = {
